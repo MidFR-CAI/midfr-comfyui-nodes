@@ -56,6 +56,11 @@ class LayoutTests(unittest.TestCase):
         out = json.loads(layout.build_prompt(boxes((-0.2, 0.5, 1.5, -0.25, "c")), 100, 100))
         self.assertEqual(out["items"][0]["bbox"], [-25, -50, 0, 50])
 
+    def test_box_rects_for_mask(self):
+        r = layout.box_rects(boxes((0.1, 0.2, 0.5, 0.25, "a"), (0, 0, 1, 1, "b"), (0.5, 0.5, 0, 0.3, "empty")), 1000, 400)
+        self.assertEqual(r, [(100, 80, 600, 180), (0, 0, 1000, 400)])
+        self.assertEqual(layout.box_rects("[]", 100, 100), [])
+
     def test_unicode_not_escaped(self):
         self.assertIn("é", layout.build_prompt(boxes((0, 0, 1, 1, "é")), 64, 64))
 

@@ -15,6 +15,8 @@ Category `image` / `image/layout`.
 ## Image BBox Layout (MOSS)
 Outputs: `image`, `mask`, `prompt`.
 
+`mask` is the boxes, filled in (1 inside every box), plus any transparency in the image. Wire it to *Set Latent Noise Mask* and the edit only touches the boxed areas. No boxes and no transparency gives an empty mask.
+
 1. Click the upload box (or drop an image). It is resized to `max_megapixels` with sides snapped to 16, which is what MOSS-Image needs.
 2. Type the whole-image description in `prompt`.
 3. Drag on the image to add a box, then type that box's prompt. Drag a box to move it, drag a corner to resize it, `Delete` removes it.

@@ -51,6 +51,18 @@ def _ceil(v):
     return math.ceil(round(v, 9))
 
 
+def box_rects(bbox_data, width, height):
+    """Pixel rectangles (x0, y0, x1, y1) of the boxes on a width x height image, top-left origin.
+    Used to turn the boxes into a mask; same enclosing floor/ceil maths as the layout JSON."""
+    rects = []
+    for b in parse_boxes(bbox_data):
+        x0, x1 = max(0, _floor(b["x0"] * width)), min(width, _ceil(b["x1"] * width))
+        y0, y1 = max(0, _floor(b["y0"] * height)), min(height, _ceil(b["y1"] * height))
+        if x1 > x0 and y1 > y0:
+            rects.append((x0, y0, x1, y1))
+    return rects
+
+
 def build_prompt(bbox_data, width, height, prompt=""):
     """-> MOSS-Image layout JSON when there are boxes, otherwise the plain prompt."""
     items = []

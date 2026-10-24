@@ -5,7 +5,7 @@ import os
 import folder_paths
 
 from .common import load_rgb_and_alpha, resize_pair, to_tensors
-from .layout import build_prompt
+from .layout import box_rects, build_prompt
 
 
 class ImageBBoxLayout:
@@ -15,7 +15,8 @@ class ImageBBoxLayout:
     FUNCTION = "run"
     DESCRIPTION = (
         "Upload an image (resized, sides snapped to 16), draw boxes on it and prompt each one. "
-        "prompt is a MOSS-Image layout prompt, or just your text when there are no boxes."
+        "prompt is a MOSS-Image layout prompt, or just your text when there are no boxes. "
+        "mask = the boxes (filled) plus any transparency in the image."
     )
 
     @classmethod
@@ -51,6 +52,8 @@ class ImageBBoxLayout:
         rgb, alpha = resize_pair(rgb, alpha, max_megapixels, multiple=16, always_snap=True)
         img, mask = to_tensors(rgb, alpha)
         w, h = rgb.size
+        for x0, y0, x1, y1 in box_rects(bbox_data, w, h):  # the boxes are also the mask
+            mask[:, y0:y1, x0:x1] = 1.0
         return (img, mask, build_prompt(bbox_data, w, h, prompt))
 
 

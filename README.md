@@ -6,7 +6,7 @@ Three small packs of custom [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 
 | Pack | Name | Nodes |
 |---|---|---|
-| **A** | [Toolbox](A-toolbox) | 10 across 5 tools |
+| **A** | [Toolbox](A-toolbox) | 12 across 8 tools |
 | **B** | [Image Tagging](B-image-tagging) | 4 |
 | **C** | [H3 AutoPrompt](C-h3-autoprompt) | 3 |
 
@@ -15,8 +15,11 @@ Three small packs of custom [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 |---|---|---|
 | **Resource Reaper** (`ComfyUI-Cleaner`) | Free Memory (passthrough), Free Memory After Run, Memory Status | Frees VRAM/RAM before each run; sidebar panel shows what else is hogging the GPU. |
 | **Text Edit (Pause)** (`ComfyUI-TextEditPause`) | Text Edit (Pause) | Pauses the workflow, lets you edit the text in a popup, then continues. |
-| **Image Upload + Resize** (`simple_image_upload_resize`) | Simple Image Upload + Resize (image + **mask**), Multi Image Upload + Resize (9), Image Set Splitter (9), **Image BBox Layout (MOSS)** | Drag-and-drop images, auto-resized to a megapixel cap. The mask comes from the image's alpha / the mask editor. BBox Layout lets you draw and prompt boxes on the image and outputs a MOSS-Image layout prompt. |
+| **Image Upload + Resize** (`simple_image_upload_resize`) | Simple Image Upload + Resize (image + **mask**), Multi Image Upload + Resize (9), Image Set Splitter (9) | Drag-and-drop images, auto-resized to a megapixel cap. The mask comes from the image's alpha / the mask editor. |
 | **Saturation Match** (`comfyui-airpg-saturation-match`) | AIRPG Saturation Match | Fixes over-saturated edits by matching colour intensity to the reference image. |
+| **Strength to Denoise** (`comfyui-flow-strength`) | Strength to Denoise (flow models) | Invoke-style img2img strength converted to KSampler `denoise` (on MOSS-Image `denoise 0.9` keeps only ~2% of the source). |
+| **Image BBox Layout** (`image_bbox_layout`) | Image BBox Layout (MOSS) | Draw and prompt boxes on an image; outputs a MOSS-Image layout prompt, the boxes and a soft mask. |
+| **Invoke Inpainting** (`invoke_inpainting`) | Invoke Inpainting (MOSS) | InvokeAI-style box + mask inpainting in one node. |
 | **Lora Vault** (`comfyui-lora-vault`) | Lora Vault Loader | LoRA manager: saves Civitai metadata, downloads weights on first use, tracks removals. |
 
 ## Pack B: Image Tagging

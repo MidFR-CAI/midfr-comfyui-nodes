@@ -96,5 +96,20 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(common.snap(1, 16), 16)
 
 
+class MaskTests(unittest.TestCase):
+    def test_soften_and_combine(self):
+        import numpy as np
+        combine_mask, soften_mask = layout.combine_mask, layout.soften_mask
+        box = np.zeros((128, 128), "float32"); box[48:80, 48:80] = 1
+        a = soften_mask(box, 16, 16)
+        assert a[64, 64] > 0.99 and 0 < a[40, 64] < 1 and a[0, 0] == 0 and a[44, 64] > box[44, 64]
+        assert (soften_mask(box, 0, 0) == box).all()
+        assert combine_mask("whole image", box, None, None).min() == 1
+        assert combine_mask("masks only", box, None, None).max() == 0
+        ext = np.zeros_like(box); ext[0, 0] = 1
+        assert combine_mask("boxes + masks", box, None, ext)[0, 0] == 1
+        assert combine_mask("boxes only", box, None, ext)[0, 0] == 0
+
+
 if __name__ == "__main__":
     unittest.main()

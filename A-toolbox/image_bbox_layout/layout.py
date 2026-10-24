@@ -80,3 +80,42 @@ def build_prompt(bbox_data, width, height, prompt=""):
     doc = {"summary": {"caption": prompt.strip()}, "items": items,
            "bbox_coord_space": "abs_centralized", "bbox_format": "yxyx"}
     return json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
+
+
+MASK_MODES = ("boxes + masks", "boxes only", "masks only", "whole image")
+
+
+def soften_mask(arr, grow=0, feather=0):
+    """arr: 2-D float numpy array in [0,1] (1 = regenerate). Returns it grown by `grow` px then
+    blurred by `feather` px (soft edge for Differential Diffusion). Works on a 1/8 size copy."""
+    import numpy as np
+    from PIL import Image, ImageFilter
+
+    if (grow <= 0 and feather <= 0) or not arr.any():
+        return arr
+    h, w = arr.shape
+    s = 8
+    small = Image.fromarray((np.clip(arr, 0, 1) * 255).astype("uint8"), "L")
+    small = small.resize((max(1, w // s), max(1, h // s)), Image.BILINEAR)
+    g = int(round(grow / s))
+    if g > 0:
+        small = small.filter(ImageFilter.MaxFilter(2 * g + 1))
+    big = small.resize((w, h), Image.BILINEAR)
+    if feather > 0:
+        big = big.filter(ImageFilter.GaussianBlur(feather / 2.5))
+    out = np.asarray(big, dtype="float32") / 255.0
+    return np.maximum(out, 0.0) if grow <= 0 else out
+
+
+def combine_mask(mode, box_mask, alpha_mask, ext_mask):
+    """Each argument is a 2-D float array (or None). Returns the pre-softening mask."""
+    import numpy as np
+
+    if mode == "whole image":
+        return np.ones_like(box_mask)
+    parts = []
+    if mode in ("boxes + masks", "boxes only"):
+        parts.append(box_mask)
+    if mode in ("boxes + masks", "masks only"):
+        parts += [m for m in (alpha_mask, ext_mask) if m is not None]
+    return np.maximum.reduce(parts) if parts else np.zeros_like(box_mask)

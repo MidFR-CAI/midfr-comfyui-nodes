@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Copy node packs into a ComfyUI custom_nodes folder.
 
-    python install.py <path/to/ComfyUI/custom_nodes> [A B C D]
+    python install.py <path/to/ComfyUI/custom_nodes> [A B C]
 
 With no pack letters, installs everything. Existing folders are left alone
 unless you pass --overwrite. Nothing is downloaded or executed.
@@ -10,7 +10,7 @@ import shutil
 import sys
 from pathlib import Path
 
-PACKS = {"A": "A-moss-control", "B": "B-image-tagging", "C": "C-h3-autoprompt", "D": "D-toolbox"}
+PACKS = {"A": "A-toolbox", "B": "B-image-tagging", "C": "C-h3-autoprompt"}
 IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".git")
 
 
@@ -27,7 +27,7 @@ def main(argv):
     letters = [a.upper() for a in args[1:]] or list(PACKS)
     bad = [l for l in letters if l not in PACKS]
     if bad:
-        print(f"Unknown pack(s): {', '.join(bad)} (choose from A B C D)")
+        print(f"Unknown pack(s): {', '.join(bad)} (choose from A B C)")
         return 1
     root = Path(__file__).resolve().parent
     for l in letters:

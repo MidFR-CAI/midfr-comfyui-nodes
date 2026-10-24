@@ -1,20 +1,23 @@
 # MidFR ComfyUI Nodes
 
-Four small packs of custom [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes: MOSS image control, dataset tagging, MiniMax H3 prompt building, and everyday workflow tools.
+Three small packs of custom [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes: everyday workflow tools, dataset tagging, and MiniMax H3 prompt building.
 
 > **Is this safe?** Yes, and you don't have to take my word for it: it's 100% plain-text Python and JavaScript, no compiled files, no installers, no obfuscation. See [SECURITY.md](SECURITY.md) for exactly what each pack touches (files, network, processes) and how to check it yourself in 5 minutes.
 
 | Pack | Name | Nodes |
 |---|---|---|
-| **A** | [MOSS Control](A-moss-control) | 1 |
+| **A** | [Toolbox](A-toolbox) | 9 across 5 tools |
 | **B** | [Image Tagging](B-image-tagging) | 4 |
 | **C** | [H3 AutoPrompt](C-h3-autoprompt) | 3 |
-| **D** | [Toolbox](D-toolbox) | 9 across 5 tools |
 
-## Pack A: MOSS Control
-| Node | Does |
-|---|---|
-| **AIRPG MOSS Control (adapter)** | Applies a trained control adapter to a MOSS-Image model: guide generation with an image, mask, lineart, depth, colour, pose or tile map. Strength 0 = plain MOSS-Image. |
+## Pack A: Toolbox
+| Tool | Nodes | Does |
+|---|---|---|
+| **Resource Reaper** (`ComfyUI-Cleaner`) | Free Memory (passthrough), Free Memory After Run, Memory Status | Frees VRAM/RAM before each run; sidebar panel shows what else is hogging the GPU. |
+| **Text Edit (Pause)** (`ComfyUI-TextEditPause`) | Text Edit (Pause) | Pauses the workflow, lets you edit the text in a popup, then continues. |
+| **Image Upload + Resize** (`simple_image_upload_resize`) | Simple Image Upload + Resize, Multi Image Upload + Resize (9), Image Set Splitter (9) | Drag-and-drop images, auto-resized to a megapixel cap (multiples of 32). |
+| **Saturation Match** (`comfyui-airpg-saturation-match`) | AIRPG Saturation Match | Fixes over-saturated edits by matching colour intensity to the reference image. |
+| **Lora Vault** (`comfyui-lora-vault`) | Lora Vault Loader | LoRA manager: saves Civitai metadata, downloads weights on first use, tracks removals. |
 
 ## Pack B: Image Tagging
 | Node | Does |
@@ -32,15 +35,6 @@ Writes MiniMax H3's strict structured video prompt from your reference media plu
 | **H3 AutoPrompt: All-in-One** | Local VLM + Whisper turn the references into a format-valid H3 prompt, with a self-check report. |
 | **H3 AutoPrompt: Reference Splitter** | Splits the bundled references into individual picture / video / audio outputs. |
 
-## Pack D: Toolbox
-| Tool | Nodes | Does |
-|---|---|---|
-| **Resource Reaper** (`ComfyUI-Cleaner`) | Free Memory (passthrough), Free Memory After Run, Memory Status | Frees VRAM/RAM before each run; sidebar panel shows what else is hogging the GPU. |
-| **Text Edit (Pause)** (`ComfyUI-TextEditPause`) | Text Edit (Pause) | Pauses the workflow, lets you edit the text in a popup, then continues. |
-| **Image Upload + Resize** (`simple_image_upload_resize`) | Simple Image Upload + Resize, Multi Image Upload + Resize (9), Image Set Splitter (9) | Drag-and-drop images, auto-resized to a megapixel cap (multiples of 32). |
-| **Saturation Match** (`comfyui-airpg-saturation-match`) | AIRPG Saturation Match | Fixes over-saturated edits by matching colour intensity to the reference image. |
-| **Lora Vault** (`comfyui-lora-vault`) | Lora Vault Loader | LoRA manager: saves Civitai metadata, downloads weights on first use, tracks removals. |
-
 ## Install
 
 Each tool is a normal ComfyUI custom-node folder. Either:
@@ -50,7 +44,7 @@ Each tool is a normal ComfyUI custom-node folder. Either:
 python install.py "C:\path\to\ComfyUI\custom_nodes"          # all packs
 python install.py "C:\path\to\ComfyUI\custom_nodes" A C      # only packs A and C
 ```
-**Manual:** copy the folder(s) you want from inside a pack folder (e.g. `A-moss-control/comfyui-airpg-moss-control`) into `ComfyUI/custom_nodes`, then restart ComfyUI.
+**Manual:** copy the folder(s) you want from inside a pack folder (e.g. `A-toolbox/comfyui-lora-vault`) into `ComfyUI/custom_nodes`, then restart ComfyUI.
 
 Some tools have optional Python dependencies; see each pack's `requirements.txt` / README. Use ComfyUI's own Python (portable build: `python_embeded\python.exe -m pip install ...`).
 

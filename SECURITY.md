@@ -6,14 +6,13 @@ These nodes are plain, readable source code. There are no binaries, no `.exe`/`.
 
 | Pack | Network | Writes files | Runs other programs |
 |---|---|---|---|
-| A MOSS Control | None | None | No |
 | B Image Tagging | Only if the Qwen model field is a Hugging Face ID (downloads the model via `transformers`) | `.txt` captions you ask it to save | No |
 | C H3 AutoPrompt | Optional model downloads from Hugging Face (WD tagger, Whisper, diarization) | Temp audio files (for Whisper) | `ffmpeg` (fallback video/audio decoding), nothing else |
-| D Resource Reaper | None | `config.json` (its own settings) | Only if you enable "allow terminate" (off by default) and click it, to close a program hogging VRAM; never automatic |
-| D Text Edit (Pause) | None (local ComfyUI routes only) | None | No |
-| D Image Upload + Resize | None | Copies images into ComfyUI's `input` folder | No |
-| D Saturation Match | None | None | No |
-| D Lora Vault | `civitai.com` only, and only through the optional Firefox extension; ComfyUI itself never connects to Civitai | Its own data folder (settings, SQLite DB, previews, LoRAs you choose to download); deletes only its own cached files | No |
+| A Resource Reaper | None | `config.json` (its own settings) | Only if you enable "allow terminate" (off by default) and click it, to close a program hogging VRAM; never automatic |
+| A Text Edit (Pause) | None (local ComfyUI routes only) | None | No |
+| A Image Upload + Resize | None | Copies images into ComfyUI's `input` folder | No |
+| A Saturation Match | None | None | No |
+| A Lora Vault | `civitai.com` only, and only through the optional Firefox extension; ComfyUI itself never connects to Civitai | Its own data folder (settings, SQLite DB, previews, LoRAs you choose to download); deletes only its own cached files | No |
 
 Notes worth knowing:
 - **Resource Reaper** wraps ComfyUI's `PromptExecutor.execute` so it can free memory before each run. It's a standard monkey-patch, visible in `hook.py` / `cleanup.py`.

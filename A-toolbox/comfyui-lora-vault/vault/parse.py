@@ -1,4 +1,4 @@
-"""Parse `<lora:REF:model_strength[:clip_strength]>` text and resolve REF to a vault entry.
+"""Parse `<lora:REF:model_strength[:clip_strength][:layers=START-END]>` text and resolve REF to a vault entry.
 
 The panel always writes canonical refs (`v12345`), but hand-typed names, aliases and
 file names work too.
@@ -13,12 +13,37 @@ _NUM = re.compile(r"^-?\d+(\.\d+)?$")
 _VID = re.compile(r"^(?:v|id:|civitai:|version:)?(\d+)$", re.IGNORECASE)
 
 
+_LAYERS = re.compile(r"^layers?\s*=\s*(\d*)\s*-\s*(\d*)$", re.IGNORECASE)
+
+
+def parse_layers(token: str):
+    """'14-41' / '14-' / '-20' -> (14, 41) / (14, None) / (0, 20); anything else -> None."""
+    m = _LAYERS.match("layers=" + token.strip())
+    if not m or (m.group(1) == "" and m.group(2) == ""):
+        return None
+    start = int(m.group(1)) if m.group(1) else 0
+    end = int(m.group(2)) if m.group(2) else None
+    if end is not None and end < start:
+        start, end = end, start
+    return start, end
+
+
 def parse(text: str):
-    """-> [{raw, ref, strength, clip_strength}]"""
+    """-> [{raw, ref, strength, clip_strength, layer_start, layer_end}]  (layer_* None = all layers)"""
     specs = []
     for m in TAG_RE.finditer(text or ""):
         body = m.group(1).strip()
         parts = body.split(":")
+        start = end = None
+        while len(parts) > 1:  # trailing key=value options, e.g. layers=14-41
+            tok = parts[-1].strip()
+            lm = _LAYERS.match(tok)
+            if not lm:
+                break
+            parts.pop()
+            got = parse_layers(tok.split("=", 1)[1])
+            if got:
+                start, end = got
         nums = []
         while len(parts) > 1 and _NUM.match(parts[-1].strip()) and len(nums) < 2:
             nums.insert(0, float(parts.pop().strip()))
@@ -26,7 +51,8 @@ def parse(text: str):
         strength = nums[0] if nums else 1.0
         clip = nums[1] if len(nums) > 1 else strength
         if ref:
-            specs.append({"raw": m.group(0), "ref": ref, "strength": strength, "clip_strength": clip})
+            specs.append({"raw": m.group(0), "ref": ref, "strength": strength, "clip_strength": clip,
+                          "layer_start": start, "layer_end": end})
     return specs
 
 

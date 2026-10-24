@@ -1,6 +1,6 @@
 """Lora Vault Loader - applies LoRAs listed as <lora:v12345:0.8> text, downloading any
 that aren't on disk yet (from your vault) right before they're needed."""
-from .vault import parse, storage, db
+from .vault import parse, storage, db, lora_fix
 
 
 def _send(event: str, data: dict):
@@ -32,7 +32,9 @@ class LoraVaultLoader:
     CATEGORY = "loaders/lora vault"
     DESCRIPTION = (
         "Apply LoRAs from your Lora Vault. LoRAs you've saved but not downloaded are fetched "
-        "from Civitai on first use. Syntax: <lora:v12345:0.8> (model strength) or <lora:v12345:0.8:0.6> (model:clip)."
+        "from Civitai on first use. Syntax: <lora:v12345:0.8> (strength for model and clip), "
+        "<lora:v12345:0.8:0.6> (model:clip), add :layers=14-41 to apply only those transformer layers. "
+        "Fused qkv LoRAs are split automatically when the model needs it."
     )
 
     def load(self, model, clip, lora_text, download_missing=True):
@@ -63,8 +65,10 @@ class LoraVaultLoader:
             else:
                 path, label = obj, obj.replace("\\", "/").split("/")[-1]
             lora = comfy.utils.load_torch_file(path, safe_load=True)
+            lora, notes = lora_fix.prepare(lora, model, s.get("layer_start"), s.get("layer_end"))
             model, clip = comfy.sd.load_lora_for_models(model, clip, lora, s["strength"], s["clip_strength"])
-            loaded.append(f"{label} @ {s['strength']:g}" + (f"/{s['clip_strength']:g}" if s["clip_strength"] != s["strength"] else ""))
+            loaded.append(f"{label} @ {s['strength']:g}" + (f"/{s['clip_strength']:g}" if s["clip_strength"] != s["strength"] else "")
+                          + (f" [{'; '.join(notes)}]" if notes else ""))
         return (model, clip, ", ".join(words), "\n".join(loaded))
 
 

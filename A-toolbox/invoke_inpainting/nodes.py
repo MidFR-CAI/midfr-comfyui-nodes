@@ -71,6 +71,9 @@ class InvokeInpaintingMOSS:
                 "crop_to_box": ("BOOLEAN", {"default": False, "tooltip":
                     "On = Invoke's behaviour (generate only the box region). Leave OFF when the text encoder carries the "
                     "image as a reference (MOSS edit), or the model redraws the whole picture inside the box"}),
+                "context_padding": ("INT", {"default": 0, "min": 0, "max": 2048, "step": 8, "tooltip":
+                    "Only with crop_to_box: widen the crop by this many px around the box so the model sees "
+                    "surrounding context. Only the box is repainted and pasted back"}),
             },
             "optional": {
                 "box_mask": ("MASK", {"tooltip": "Generation box(es), e.g. the 'boxes' output of Image BBox Layout. "
@@ -81,11 +84,12 @@ class InvokeInpaintingMOSS:
 
     def run(self, model, positive, negative, vae, image, seed, steps, cfg, strength, edge_size,
             coherence_mode, minimum_denoise, mask_blur, scale_before_processing, crop_to_box=False,
-            box_mask=None, inpaint_mask=None):
+            context_padding=0, box_mask=None, inpaint_mask=None):
         image = image[:1]
         _, H, W, _ = image.shape
         plan = plan_inpaint(H, W, _mask_np(box_mask, H, W), _mask_np(inpaint_mask, H, W),
-                            scale_before_processing, edge_size, coherence_mode, minimum_denoise, mask_blur, crop_to_box)
+                            scale_before_processing, edge_size, coherence_mode, minimum_denoise, mask_blur, crop_to_box,
+                            context_padding)
         x0, y0, x1, y1 = plan["rect"]
         cw, ch = plan["crop_size"]
         pw, ph = plan["proc_size"]

@@ -171,7 +171,7 @@ def strength_to_denoise(strength, shift):
 
 # ---------------------------------------------------------------- plan (everything except the model calls)
 def plan_inpaint(height, width, box=None, inpaint=None, scale="auto", edge_size=16,
-                 coherence_mode="Gaussian Blur", min_denoise=0.0, mask_blur=16, crop=True):
+                 coherence_mode="Gaussian Blur", min_denoise=0.0, mask_blur=16, crop=True, padding=0):
     """Work out the crop, processing size, denoise mask and paste-back alpha.
 
     box:     HxW float, the generation box(es). None / empty -> the whole image. Several boxes -> one crop
@@ -181,6 +181,8 @@ def plan_inpaint(height, width, box=None, inpaint=None, scale="auto", edge_size=
     crop:    False = process the whole image (needed when the conditioning carries the full image as a
              reference, as MOSS edit does); the box then only limits where the result is pasted and, with
              no inpaint mask, is itself the area to repaint.
+    padding: with crop, grow the crop by this many px on every side (clamped to the image) so the model sees
+             surrounding context; only the box is repainted and pasted back.
     Returns dict: rect, crop_size (w, h), proc_size (w, h), weight (None or proc-size denoise mask),
     alpha (crop-size paste-back alpha), masked (bool)."""
     box_hard = None
@@ -191,6 +193,9 @@ def plan_inpaint(height, width, box=None, inpaint=None, scale="auto", edge_size=
         box_hard = box > 0.5
     if not crop:
         rect = (0, 0, width, height)
+    elif padding > 0:
+        rx0, ry0, rx1, ry1 = rect
+        rect = (max(0, rx0 - padding), max(0, ry0 - padding), min(width, rx1 + padding), min(height, ry1 + padding))
     x0, y0, x1, y1 = rect
     cw, ch = x1 - x0, y1 - y0
     pw, ph = processing_size(cw, ch, scale)
@@ -207,7 +212,7 @@ def plan_inpaint(height, width, box=None, inpaint=None, scale="auto", edge_size=
             m = m * box_crop
         if m.max() <= 0.001:
             m = None
-    if m is None and not crop and box_crop is not None:
+    if m is None and box_crop is not None and (not crop or padding > 0):
         m = box_crop.copy()  # no mask painted: repaint the box
 
     if m is None:

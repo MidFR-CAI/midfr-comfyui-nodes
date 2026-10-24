@@ -166,7 +166,8 @@ async def resolve(request):
     body = await request.json()
     items = []
     for s in parse.parse(body.get("text", "")):
-        entry = {"ref": s["ref"], "strength": s["strength"], "clip_strength": s["clip_strength"], "raw": s["raw"]}
+        entry = {"ref": s["ref"], "strength": s["strength"], "clip_strength": s["clip_strength"], "raw": s["raw"],
+                 "layer_start": s["layer_start"], "layer_end": s["layer_end"]}
         try:
             kind, obj = parse.resolve(s["ref"])
             if kind == "vault":

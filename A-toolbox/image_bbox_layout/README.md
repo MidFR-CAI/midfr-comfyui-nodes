@@ -1,6 +1,6 @@
 # Image BBox Layout (MOSS)
 
-Category `image/layout`. Outputs: `image`, `mask`, `prompt`, `boxes`.
+Category `image/layout`. Outputs: `image`, `mask`, `prompt`, `boxes`, `painted`.
 
 1. Click the upload box (or drop an image). It is resized to `max_megapixels` with sides snapped to 16, which is what MOSS-Image needs.
 2. Type the whole-image description in `prompt`.
@@ -16,10 +16,7 @@ Category `image/layout`. Outputs: `image`, `mask`, `prompt`, `boxes`.
 
 ## Masks
 - `boxes`: the plain boxes, no grow or feather. Feed this to **Invoke Inpainting (MOSS)** as `box_mask`.
+- `painted`: only what you painted, no grow or feather. **Right-click the image (or the node) > Open in MaskEditor**, paint, Save. The mask is stored as the image's transparency. Feed this to **Invoke Inpainting (MOSS)** as `inpaint_mask`.
 - `mask`: built from `mask_mode`: *boxes + masks* (default: boxes, image transparency and the optional `mask` input), *boxes only*, *masks only*, or *whole image*. `mask_grow` expands it, `mask_feather` softens the edge. Use it with *Set Latent Noise Mask* + **Differential Diffusion** if you build your own inpaint graph.
 
 Tests (Pillow, numpy): `python -m unittest discover -s tests`.
-
-The node shows only the image editor and `prompt`; `max_megapixels` and the mask settings are behind the gear button at the top right of the node.
-
-The node shows only the image editor and `prompt`. `max_megapixels` and the mask settings open in a popup from the gear button at the top right of the node.

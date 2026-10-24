@@ -113,7 +113,7 @@ app.registerExtension({
     bar.append(upBtn, nameEl, clearBtn);
 
     const stage = document.createElement("div"); stage.className = "bbl-stage";
-    const img = document.createElement("img"); img.draggable = false; img.decoding = "async"; img.style.display = "none";
+    const img = document.createElement("img"); img.draggable = false; img.style.background = "repeating-conic-gradient(#555 0% 25%, #3a3a3a 0% 50%) 0 0 / 16px 16px"; img.decoding = "async"; img.style.display = "none";
     const empty = document.createElement("div"); empty.className = "bbl-empty";
     empty.textContent = "Drop an image here\nor click to upload";
     const over = document.createElement("div"); over.className = "bbl-over"; over.tabIndex = 0; over.style.display = "none";
@@ -410,6 +410,56 @@ app.registerExtension({
       refreshImage();
       renderBoxes();
     }
+    // ---------- mask editor ----------
+    // ComfyUI's "Open in MaskEditor" only appears on nodes that hold a preview image (node.imgs). We hold ours in a
+    // DOM <img>, so lend it to the node just while the menu / editor needs it, then take it back (otherwise the core
+    // would also paint it as a node preview). The editor saves the painted mask as the image's transparency, which
+    // the backend reads as the mask.
+    const lend = () => {
+      if (!imageW.value || imageW.value === "none" || !img.complete || !img.naturalWidth) return false;
+      node.imgs = [img];
+      return true;
+    };
+    const takeBack = (delay) => setTimeout(() => { if (node.imgs && node.imgs[0] === img) node.imgs = undefined; }, delay);
+    const origMenu = node.getExtraMenuOptions;
+    node.getExtraMenuOptions = function (canvas, options) {
+      const lent = lend();
+      let r;
+      try { r = origMenu ? origMenu.apply(this, arguments) : undefined; }
+      finally { if (lent) takeBack(0); }
+      if (lent && Array.isArray(options)) {
+        for (const o of options) {
+          if (o && typeof o.content === "string" && o.content.startsWith("Open in MaskEditor")) {
+            const cb = o.callback;
+            o.callback = function () {
+              if (lend()) { takeBack(8000); }
+              return cb?.apply(this, arguments);
+            };
+          }
+        }
+      }
+      return r;
+    };
+    // Right-click on the picture (a DOM element) doesn't reach the canvas, so open the node menu ourselves.
+    stage.addEventListener("contextmenu", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try { app.canvas.processContextMenu(node, e); } catch (err) { console.warn("bbox: context menu", err); }
+    });
+    // The editor swaps the image for the painted one (a new file name): pick that up.
+    let seenImage = imageW.value;
+    const drawFg = node.onDrawForeground;
+    node.onDrawForeground = function () {
+      const pv = node.widgets?.findIndex((w) => w.name === "$$canvas-image-preview");
+      if (pv >= 0) { // the core adds its own preview widget after a save; ours is the picture
+        node.widgets.splice(pv, 1);
+        node.imgs = undefined;
+        setTimeout(() => { try { node.setSize([node.size[0], node.computeSize()[1]]); node.setDirtyCanvas(true, true); } catch { /* ignore */ } }, 0);
+      }
+      if (node.imgs && node.imgs[0] !== img) node.imgs = undefined; // the editor leaves its own preview behind: we show the picture ourselves
+      if (imageW.value !== seenImage) { seenImage = imageW.value; refreshImage(); notifyChange(100); }
+      return drawFg?.apply(this, arguments);
+    };
+
     const origConfigure = node.onConfigure;
     node.onConfigure = function () {
       const r = origConfigure ? origConfigure.apply(this, arguments) : undefined;

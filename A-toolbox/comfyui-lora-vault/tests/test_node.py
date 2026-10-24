@@ -63,3 +63,31 @@ def test_download_missing_off_refuses(env):
     snapshot.save_version(version_id=111)
     with pytest.raises(RuntimeError, match="isn't downloaded"):
         LoraVaultLoader().load("M", "C", "<lora:v111:1>", download_missing=False)
+
+
+def test_fused_qkv_is_split_and_layers_limited(env, monkeypatch):
+    import numpy as np
+    fake, calls = env
+    from vault import snapshot
+    LoraVaultLoader = load_pkg().nodes.LoraVaultLoader
+    snapshot.save_version(version_id=111)
+    P = "diffusion_model.layers.{}.proj"
+    key_map = {f"{P.format(i)}.{x}": f"{P.format(i)}.{x}.weight" for i in range(3) for x in ("q", "k", "v")}
+    lm = types.ModuleType("comfy.lora"); lm.model_lora_keys_unet = lambda m, km: dict(key_map)
+    monkeypatch.setitem(sys.modules, "comfy.lora", lm); sys.modules["comfy"].lora = lm
+    lora = {}
+    for i in range(3):
+        lora[f"{P.format(i)}.qkv.lora_A.weight"] = np.ones((2, 4)); lora[f"{P.format(i)}.qkv.lora_B.weight"] = np.ones((9, 2))
+    seen = {}
+    sys.modules["comfy.utils"].load_torch_file = lambda p, safe_load=True: lora
+    def apply(m, c, sd, sm, sc):
+        seen.update(sd); return m, c
+    sys.modules["comfy.sd"].load_lora_for_models = apply
+
+    class FakeModel:
+        model = object()
+        def get_model_object(self, k): return np.zeros((3, 4))
+    _, _, _, loaded = LoraVaultLoader().load(FakeModel(), "C", "<lora:v111:0.4:layers=1-2>")
+    assert sorted(seen) == sorted(f"{P.format(i)}.{x}.lora_{ab}.weight" for i in (1, 2) for x in "qkv" for ab in "AB")
+    assert seen[f"{P.format(1)}.q.lora_B.weight"].shape == (3, 2)
+    assert "split 3 fused qkv" in loaded and "layers 1-2" in loaded and "@ 0.4" in loaded

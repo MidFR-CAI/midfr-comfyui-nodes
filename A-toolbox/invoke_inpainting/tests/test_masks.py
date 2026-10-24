@@ -133,6 +133,19 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(p["alpha"][100, 100], 0.0)
         self.assertEqual(p["alpha"][20, 20], 1.0)
 
+    def test_context_padding_widens_crop_but_repaints_only_the_box(self):
+        box = np.zeros((400, 400), "float32"); box[100:200, 150:250] = 1
+        p = masks.plan_inpaint(400, 400, box=box, padding=64)
+        self.assertEqual(p["rect"], (86, 36, 314, 264))
+        self.assertTrue(p["masked"] and p["weight"] is not None)  # box is repainted, the padding is context
+        self.assertEqual(p["alpha"][0, 0], 0.0)                     # padding corner never pasted
+        self.assertEqual(p["alpha"][100 - 36 + 50, 150 - 86 + 50], 1.0)  # box centre
+        # clamped at the image edge, and padding 0 is unchanged
+        box2 = np.zeros((400, 400), "float32"); box2[0:50, 0:50] = 1
+        self.assertEqual(masks.plan_inpaint(400, 400, box=box2, padding=64)["rect"], (0, 0, 114, 114))
+        self.assertEqual(masks.plan_inpaint(400, 400, box=box, padding=0)["rect"], (150, 100, 250, 200))
+        self.assertFalse(masks.plan_inpaint(400, 400, box=box, padding=0)["masked"])
+
     def test_empty_inpaint_mask_means_whole_box(self):
         box = np.zeros((128, 128), "float32"); box[:64, :64] = 1
         p = masks.plan_inpaint(128, 128, box=box, inpaint=np.zeros((128, 128), "float32"))

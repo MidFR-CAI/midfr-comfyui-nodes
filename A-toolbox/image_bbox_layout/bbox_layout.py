@@ -10,13 +10,13 @@ from .layout import MASK_MODES, box_rects, build_prompt, combine_mask, soften_ma
 
 class ImageBBoxLayout:
     CATEGORY = "image/layout"
-    RETURN_TYPES = ("IMAGE", "MASK", "STRING", "MASK")
-    RETURN_NAMES = ("image", "mask", "prompt", "boxes")
+    RETURN_TYPES = ("IMAGE", "MASK", "STRING", "MASK", "MASK")
+    RETURN_NAMES = ("image", "mask", "prompt", "boxes", "painted")
     FUNCTION = "run"
     DESCRIPTION = (
         "Upload an image (resized, sides snapped to 16), draw boxes on it and prompt each one. "
         "prompt is a MOSS-Image layout prompt, or just your text when there are no boxes. "
-        "boxes = the plain boxes (for Invoke Inpainting). mask = boxes / image transparency / a mask input, grown and feathered. The boxes are a "
+        "boxes = the plain boxes (for Invoke Inpainting). painted = just what you painted with right-click > Open in MaskEditor (plus the mask input), no grow or feather. mask = boxes / image transparency / a mask input, grown and feathered. The boxes are a "
         "suggestion: the soft mask edge pairs with Differential Diffusion."
     )
 
@@ -78,7 +78,11 @@ class ImageBBoxLayout:
         arr = soften_mask(arr, mask_grow, mask_feather)
         out = torch.from_numpy(np.ascontiguousarray(arr)).float().clamp(0, 1).unsqueeze(0)
         boxes_t = torch.from_numpy(boxes).float().unsqueeze(0)  # hard boxes, no grow/feather
-        return (img, out, build_prompt(bbox_data, w, h, prompt), boxes_t)
+        painted = alpha_mask[0].cpu().numpy()
+        if ext is not None:
+            painted = np.maximum(painted, ext)
+        painted_t = torch.from_numpy(np.ascontiguousarray(painted)).float().clamp(0, 1).unsqueeze(0)
+        return (img, out, build_prompt(bbox_data, w, h, prompt), boxes_t, painted_t)
 
 
 NODE_CLASS_MAPPINGS = {"ImageBBoxLayout": ImageBBoxLayout}

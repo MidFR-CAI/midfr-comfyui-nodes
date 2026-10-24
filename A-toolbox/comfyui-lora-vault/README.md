@@ -50,6 +50,12 @@ No subscription, licence or account of any kind. A Civitai API key is optional (
     (different base model, removed from Civitai).
 - The node outputs `model`, `clip`, `trigger_words` and a `loaded` summary. Text format is
   `<lora:v12345:0.8>` or `<lora:v12345:0.8:0.6>` (model:clip); names and file names also work.
+- Each card has **one strength** (step 0.05) that applies to both model and clip. The **⚙ cog** holds the
+  advanced options: a **layer range** (first/last layer, blank = all) and **split clip / model strength**.
+  Text form: `<lora:v12345:0.8:layers=14-41>` (also `14-` or `-20`), `<lora:v12345:0.8:0.6:layers=14-41>`.
+- **Fused qkv LoRAs are split automatically.** Some LoRAs store attention as one fused `qkv` weight, which
+  ComfyUI silently drops on models with separate q/k/v. The loader splits these exactly (no approximation), so
+  they actually apply. The `loaded` output reports e.g. `split 24 fused qkv`.
 - On Civitai model pages the extension adds an **Add to Lora Vault** button (and ✔ badges on cards you own).
 
 ## Vault page (`/lora_vault`)

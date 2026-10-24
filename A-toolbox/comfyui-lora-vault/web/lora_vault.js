@@ -47,7 +47,8 @@ const nameRef = (model, version, id) => {
   const r = `${model || ""} - ${version || ""}`.replace(/[<>:|]+/g, " ").replace(/\s+/g, " ").replace(/^[\s-]+|[\s-]+$/g, "");
   return r && !/^(v|id:|civitai:|version:)?\d+$/i.test(r) ? r : "v" + id;
 };
-const fmtTag = (ref, s, c) => `<lora:${ref}:${+s.toFixed(3)}${c !== s ? ":" + +c.toFixed(3) : ""}>`;
+const layerTok = (a, b) => (a == null && b == null ? "" : `:layers=${a ?? 0}-${b ?? ""}`);
+const fmtTag = (ref, s, c, a, b) => `<lora:${ref}:${+s.toFixed(3)}${c !== s ? ":" + +c.toFixed(3) : ""}${layerTok(a, b)}>`;
 const STATUS = {
   ok: null,
   possibly_removed: ["⚠ Possibly removed", "warn", "Civitai returned 404 once. Will confirm on the next check."],
@@ -85,7 +86,8 @@ const CSS = `
 .lv-bar-prog{height:4px;background:#333;border-radius:2px;overflow:hidden}.lv-bar-prog>div{height:100%;background:#2d6cdf}
 .lv-empty{opacity:.6;text-align:center;padding:14px 6px}
 .lv-err{color:#ff7a6b}
-.lv input.num{width:52px}
+.lv input.num{width:56px}
+.lv button.cog{padding:1px 6px}.lv button.cog.on{background:#2d6cdf;border-color:#2d6cdf;color:#fff}
 .lv a{color:#6aa9ff}
 `;
 
@@ -135,7 +137,7 @@ class VaultPanel {
     if (this.tw.inputEl) this.tw.inputEl.addEventListener("input", () => this.refreshSoon());
   }
 
-  destroy() { clearInterval(this.timer); }
+  destroy() { clearInterval(this.timer); this.closeCog(); }
 
   // -------- blur setting (stored on the server so the node and the vault page agree)
   async loadBlur() {
@@ -185,7 +187,10 @@ class VaultPanel {
     this.setText((this.text.trimEnd() + "\n" + tag).trim());
   }
   setStrength(idx, it, s, c) {
-    this.setText(this.mutate((i, m) => (i === idx ? fmtTag(it.ref, s, c) : m)));
+    this.setText(this.mutate((i, m) => (i === idx ? fmtTag(it.ref, s, c, it.layer_start, it.layer_end) : m)));
+  }
+  setLayers(idx, it, a, b) {
+    this.setText(this.mutate((i, m) => (i === idx ? fmtTag(it.ref, it.strength, it.clip_strength, a, b) : m)));
   }
   removeAt(idx) {
     this.setText(this.mutate((i, m) => (i === idx ? "" : m)).replace(/\n{2,}/g, "\n").trim());
@@ -293,10 +298,61 @@ class VaultPanel {
   }
 
   strengthRow(it, idx, v) {
-    const mk = (val, cb) => h("input", { class: "num", type: "number", step: "0.05", value: val, onchange: (e) => cb(parseFloat(e.target.value)) });
+    const split = it.clip_strength !== it.strength;
+    const ranged = it.layer_start != null || it.layer_end != null;
+    const num = (x, fallback) => (isNaN(x) ? fallback : x);
+    const input = h("input", { class: "num", type: "number", step: "0.05", value: +it.strength.toFixed(3),
+      title: split ? "Model strength (clip strength is split: see the cog)" : "Strength for model and clip",
+      onchange: (e) => { const s = num(parseFloat(e.target.value), 1); this.setStrength(idx, it, s, split ? it.clip_strength : s); } });
+    const cog = h("button", { class: "cog mini" + (split || ranged ? " on" : ""), title: "Layer range and split clip/model strength", onclick: (e) => { e.stopPropagation(); this.openCog(cog, idx, it); } }, "⚙");
     return h("div", { class: "lv-row" },
-      h("span", { style: { opacity: ".7" } }, "model"), mk(it.strength, (s) => this.setStrength(idx, it, isNaN(s) ? 1 : s, it.clip_strength === it.strength ? (isNaN(s) ? 1 : s) : it.clip_strength)),
-      h("span", { style: { opacity: ".7" } }, "clip"), mk(it.clip_strength, (c) => this.setStrength(idx, it, it.strength, isNaN(c) ? 1 : c)));
+      h("span", { style: { opacity: ".7" } }, split ? "model" : "strength"), input,
+      split && h("span", { class: "lv-chip", title: "Clip strength (split)" }, "clip " + +it.clip_strength.toFixed(3)),
+      ranged && h("span", { class: "lv-chip", title: "Only these transformer layers are patched" }, `layers ${it.layer_start ?? 0}–${it.layer_end ?? "end"}`),
+      cog);
+  }
+
+  // Little cog menu: layer range + split clip/model strength (floating, so cards don't grow).
+  openCog(anchor, idx, it) {
+    this.closeCog();
+    const num = (x) => { const n = parseInt(x, 10); return isNaN(n) || n < 0 ? null : n; };
+    // The card is redrawn after every change, so keep this menu's own copy of the values and always write all of them.
+    const st = { s: it.strength, c: it.clip_strength, a: it.layer_start, b: it.layer_end };
+    const write = () => this.setText(this.mutate((i, m) => (i === idx ? fmtTag(it.ref, st.s, st.c, st.a, st.b) : m)));
+    const split = st.c !== st.s;
+    const startIn = h("input", { class: "num", type: "number", min: "0", step: "1", placeholder: "first", value: st.a ?? "" });
+    const endIn = h("input", { class: "num", type: "number", min: "0", step: "1", placeholder: "last", value: st.b ?? "" });
+    startIn.onchange = endIn.onchange = () => { st.a = num(startIn.value); st.b = num(endIn.value); write(); };
+    const clipIn = h("input", { class: "num", type: "number", step: "0.05", value: +st.c.toFixed(3), disabled: !split,
+      onchange: (e) => { const c = parseFloat(e.target.value); st.c = isNaN(c) ? st.s : c; write(); } });
+    const splitBox = h("input", { type: "checkbox", checked: split, onchange: (e) => {
+      clipIn.disabled = !e.target.checked;
+      if (!e.target.checked) { st.c = st.s; clipIn.value = +st.s.toFixed(3); write(); }
+    } });
+    const panel = h("div", { class: "lv lv-cog", style: { position: "fixed", zIndex: 10000, width: "250px", padding: "10px", height: "auto", minHeight: "0",
+      background: "var(--comfy-menu-bg,#2b2b2b)", border: "1px solid var(--border-color,#666)", borderRadius: "8px", boxShadow: "0 6px 24px rgba(0,0,0,.5)" } },
+      h("div", { style: { fontWeight: "600", marginBottom: "6px" } }, "LoRA settings"),
+      h("div", { class: "lv-row", style: { justifyContent: "space-between" }, title: "Patch only these transformer layers (inclusive). Blank = all. Early layers mostly shape structure and identity, late layers more of the style and texture." },
+        h("span", {}, "Layers"), h("span", { class: "lv-row" }, startIn, " to ", endIn)),
+      h("div", { class: "lv-sub", style: { whiteSpace: "normal", margin: "2px 0 8px" } }, "Blank = all layers. Try a later range for a style LoRA to keep edits accurate."),
+      h("label", { class: "lv-row", style: { justifyContent: "space-between" } }, h("span", { class: "lv-row" }, splitBox, "Split clip / model"), clipIn),
+      h("div", { class: "lv-row", style: { marginTop: "8px", justifyContent: "flex-end" } },
+        h("button", { class: "mini", onclick: () => { st.a = st.b = null; startIn.value = endIn.value = ""; write(); } }, "Reset layers"),
+        h("button", { class: "mini pri", onclick: () => this.closeCog() }, "Done")));
+    document.body.append(panel);
+    const r = anchor.getBoundingClientRect();
+    panel.style.left = Math.max(8, Math.min(r.left, innerWidth - panel.offsetWidth - 8)) + "px";
+    panel.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - panel.offsetHeight - 8)) + "px";
+    this._cog = panel;
+    this._cogOutside = (e) => { if (!panel.contains(e.target) && e.target !== anchor) this.closeCog(); };
+    this._cogKey = (e) => { if (e.key === "Escape") this.closeCog(); };
+    setTimeout(() => { document.addEventListener("pointerdown", this._cogOutside, true); document.addEventListener("keydown", this._cogKey, true); }, 0);
+  }
+  closeCog() {
+    if (this._cog) this._cog.remove();
+    this._cog = null;
+    document.removeEventListener("pointerdown", this._cogOutside, true);
+    document.removeEventListener("keydown", this._cogKey, true);
   }
 
   detail(v) {
@@ -401,7 +457,7 @@ class VaultPanel {
       await call("/save", "POST", { version_id: other.id });
       const ref = other.tag_ref || "v" + other.id;
       const idxs = this.items.map((it, i) => (it.ok && it.kind === "vault" && it.item.version_id === v.version_id ? i : -1)).filter((i) => i >= 0);
-      this.setText(this.mutate((i, m) => { const k = idxs.indexOf(i); if (k < 0) return m; const it = this.items[i]; return fmtTag(ref, it.strength, it.clip_strength); }));
+      this.setText(this.mutate((i, m) => { const k = idxs.indexOf(i); if (k < 0) return m; const it = this.items[i]; return fmtTag(ref, it.strength, it.clip_strength, it.layer_start, it.layer_end); }));
     } catch (e) { alert("Couldn't switch version: " + e.message); }
   }
 

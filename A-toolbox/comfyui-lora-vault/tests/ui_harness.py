@@ -51,6 +51,18 @@ with sync_playwright() as pw:
     # strength edit rewrites the tag
     pg.fill(".lv-card input.num >> nth=0", "0.7"); pg.dispatch_event(".lv-card input.num >> nth=0", "change")
     pg.wait_for_function("window.__node.widgets[0].value.includes('<lora:Pony Thing - v2:0.7:1>') || window.__node.widgets[0].value.includes('<lora:Pony Thing - v2:0.7>')")
+    # cog: layers + split clip, then reset
+    pg.click(".lv-card button.cog"); pg.wait_for_selector(".lv-cog")
+    pg.fill(".lv-cog input[placeholder=first]", "14"); pg.dispatch_event(".lv-cog input[placeholder=first]", "change")
+    pg.wait_for_function("window.__node.widgets[0].value.includes(':layers=14-')")
+    pg.fill(".lv-cog input[placeholder=last]", "41"); pg.dispatch_event(".lv-cog input[placeholder=last]", "change")
+    pg.wait_for_function("window.__node.widgets[0].value.includes(':layers=14-41>')")
+    pg.check(".lv-cog input[type=checkbox]"); pg.fill(".lv-cog input.num >> nth=2", "0.3"); pg.dispatch_event(".lv-cog input.num >> nth=2", "change")
+    pg.wait_for_function("window.__node.widgets[0].value.includes('<lora:Pony Thing - v2:0.7:0.3:layers=14-41>')")
+    pg.click(".lv-cog >> text=Reset layers")
+    pg.wait_for_function("!window.__node.widgets[0].value.includes('layers=')")
+    pg.keyboard.press("Escape"); pg.wait_for_selector(".lv-cog", state="detached")
+    pg.fill(".lv-card input.num >> nth=0", "0.7"); pg.dispatch_event(".lv-card input.num >> nth=0", "change")
     # details
     pg.click("text=Details"); pg.wait_for_selector(".lv-detail")
     d = pg.inner_text(".lv-detail"); assert "Model desc" in d and "pt" in pg.inner_text(".lv-card"), d

@@ -11,3 +11,4 @@ settings.json
 **/previews/
 **/signed/
 .amo-upload-uuid
+disabled.txt

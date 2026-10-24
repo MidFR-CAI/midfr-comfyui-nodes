@@ -2,6 +2,8 @@
 
 These nodes are plain, readable source code. There are no binaries, no `.exe`/`.dll`, no obfuscated or minified code, no install scripts that run on their own, and nothing is downloaded and executed.
 
+The root `__init__.py` only imports the tool folders in this repo (and registers their web files); it does nothing else.
+
 ## What each pack does on your machine
 
 | Pack | Network | Writes files | Runs other programs |
@@ -12,7 +14,7 @@ These nodes are plain, readable source code. There are no binaries, no `.exe`/`.
 | A Text Edit (Pause) | None (local ComfyUI routes only) | None | No |
 | A Image Upload + Resize | None | Copies images into ComfyUI's `input` folder | No |
 | A Saturation Match | None | None | No |
-| A Lora Vault | `civitai.com` only, and only through the optional Firefox extension; ComfyUI itself never connects to Civitai | Its own data folder (settings, SQLite DB, previews, LoRAs you choose to download); deletes only its own cached files | No |
+| A Lora Vault | `civitai.com` only, and only through the optional Firefox extension; ComfyUI itself never connects to Civitai | Its own data folder (settings, SQLite DB, previews, LoRAs you choose to download); deletes only its own cached files; runs a helper server bound to `127.0.0.1` only | No |
 
 Notes worth knowing:
 - **Resource Reaper** wraps ComfyUI's `PromptExecutor.execute` so it can free memory before each run. It's a standard monkey-patch, visible in `hook.py` / `cleanup.py`.

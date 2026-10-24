@@ -5,6 +5,19 @@ import folder_paths
 import os
 import sys
 
+
+def _custom_nodes_dir():
+    """The ComfyUI custom_nodes folder, wherever this pack sits inside it."""
+    d = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        parent = os.path.dirname(d)
+        if os.path.basename(d).lower() == "custom_nodes":
+            return d
+        if parent == d:
+            return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        d = parent
+
+
 class HybridTaggingNode:
     @classmethod
     def INPUT_TYPES(cls):
@@ -107,8 +120,7 @@ class HybridTaggingNode:
             import onnxruntime as ort
             from PIL import Image as PILImage
 
-            models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                      "comfyui-wd14-tagger", "models")
+            models_dir = os.path.join(_custom_nodes_dir(), "comfyui-wd14-tagger", "models")
             preferred = ["wd-swinv2-tagger-v3", "wd-eva02-large-tagger-v3"]
             available = [f[:-5] for f in os.listdir(models_dir)
                          if f.endswith(".onnx") and os.path.exists(os.path.join(models_dir, f[:-5] + ".csv"))]

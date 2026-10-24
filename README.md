@@ -37,14 +37,18 @@ Writes MiniMax H3's strict structured video prompt from your reference media plu
 
 ## Install
 
-Each tool is a normal ComfyUI custom-node folder. Either:
+**Recommended: clone the whole repo into `custom_nodes`.** A root `__init__.py` loads every tool; if one fails (e.g. a missing dependency) it's reported in the console and the rest still load.
+```
+cd ComfyUI/custom_nodes
+git clone https://github.com/MidFR-CAI/midfr-comfyui-nodes
+```
+Restart ComfyUI. The console prints `[MidFR] loaded N tool(s), N node(s)`.
 
-**Easy:** run the installer, pick packs, it copies the folders into `ComfyUI/custom_nodes`:
-```
-python install.py "C:\path\to\ComfyUI\custom_nodes"          # all packs
-python install.py "C:\path\to\ComfyUI\custom_nodes" A C      # only packs A and C
-```
-**Manual:** copy the folder(s) you want from inside a pack folder (e.g. `A-toolbox/comfyui-lora-vault`) into `ComfyUI/custom_nodes`, then restart ComfyUI.
+- **Don't also keep the old standalone copies** of these tools in `custom_nodes` (duplicate node names).
+- **Skip a tool:** list its folder name (e.g. `comfyui-lora-vault`) in a `disabled.txt` next to `__init__.py`, one per line, or set `MIDFR_DISABLE=comfyui-lora-vault,ComfyUI-Cleaner`.
+- **Defaults to know:** Resource Reaper frees memory before every run (turn off in its sidebar panel), and Lora Vault starts a local-only helper on `127.0.0.1`.
+
+**Just want one tool?** Run `python install.py "C:\path\to\ComfyUI\custom_nodes" A` (pack letters A, B, C; none = all) or copy a single tool folder (e.g. `A-toolbox/ComfyUI-TextEditPause`) into `custom_nodes`. Each tool also works on its own.
 
 Some tools have optional Python dependencies; see each pack's `requirements.txt` / README. Use ComfyUI's own Python (portable build: `python_embeded\python.exe -m pip install ...`).
 

@@ -49,4 +49,4 @@ python install.py "C:\path\to\ComfyUI\custom_nodes" A C      # only packs A and 
 Some tools have optional Python dependencies; see each pack's `requirements.txt` / README. Use ComfyUI's own Python (portable build: `python_embeded\python.exe -m pip install ...`).
 
 ## License
-[MIT](LICENSE). Pack C is designed to work alongside, but does not include, Adudeguyman's [ComfyUI-Fantastic-MiniMaxH3-PromptBuilder](https://github.com/Adudeguyman/ComfyUI-Fantastic-MiniMaxH3-PromptBuilder).
+[MIT](LICENSE). Pack C is standalone and needs no other node pack. Its reference numbering conventions and the prompt grammar it encodes follow Adudeguyman's MIT-licensed [ComfyUI-Fantastic-MiniMaxH3-PromptBuilder](https://github.com/Adudeguyman/ComfyUI-Fantastic-MiniMaxH3-PromptBuilder) and MiniMax's H3 prompt-writing guide; thanks to both.

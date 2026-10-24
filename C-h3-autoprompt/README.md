@@ -10,6 +10,6 @@ Builds [MiniMax H3](https://www.minimax.io)'s strict structured video prompt fro
 
 Why it's reliable: the model only decides *what* appears; `grammar.py` guarantees *format* (timestamps, speaker IDs, section order). See [`docs/design-notes.md`](ComfyUI-H3-AutoPrompt/docs/design-notes.md).
 
-**Requirements:** see `requirements.txt` (core: `torch`, `Pillow`, `numpy`; plus `av` or `ffmpeg`, `faster-whisper`, and either `llama-cpp-python` (GGUF VLM) or `transformers`). Optional: `pyannote.audio` (speaker diarization), `opencv-python` + `pytesseract` + `onnxruntime` (comic mode). Compatible with, but doesn't need, [ComfyUI-Fantastic-MiniMaxH3-PromptBuilder](https://github.com/Adudeguyman/ComfyUI-Fantastic-MiniMaxH3-PromptBuilder).
+**Requirements:** see `requirements.txt` (core: `torch`, `Pillow`, `numpy`; plus `av` or `ffmpeg`, `faster-whisper`, and either `llama-cpp-python` (GGUF VLM) or `transformers`). Optional: `pyannote.audio` (speaker diarization), `opencv-python` + `pytesseract` + `onnxruntime` (comic mode). Standalone: needs no other node pack, and its outputs feed ComfyUI's built-in MiniMax H3 nodes.
 
 Install: copy `ComfyUI-H3-AutoPrompt` into `ComfyUI/custom_nodes`, `pip install -r requirements.txt`.

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.bak
+*.xpi
+.pytest_cache/
+# runtime data written by the nodes
+config.json
+settings.json
+*.db
+**/backups/
+**/previews/
+**/signed/
+.amo-upload-uuid

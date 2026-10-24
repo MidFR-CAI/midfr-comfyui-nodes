@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "Lora Vault for Civitai",
+  "version": "0.2.1",
+  "description": "Fetches Civitai data and downloads LoRAs through Firefox for your local ComfyUI Lora Vault, and adds an 'Add to Lora Vault' button on Civitai pages.",
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "downloads",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://civitai.com/*",
+    "https://*.civitai.com/*",
+    "https://civitai.red/*",
+    "https://*.civitai.red/*",
+    "http://127.0.0.1:8199/*",
+    "http://localhost:8199/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://civitai.com/*",
+        "https://civitai.red/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Lora Vault",
+    "default_icon": "icon48.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "lora-vault@local.invalid",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  }
+}

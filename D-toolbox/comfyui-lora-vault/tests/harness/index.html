@@ -1,0 +1,17 @@
+<!doctype html><html><body style="background:#1c1c1c;width:520px;margin:10px">
+<div id="host"></div>
+<script type="module">
+import { app } from "/scripts/app.js";
+await import("/extensions/lora-vault/lora_vault.js");
+const ext = app._ext;
+class NodeType { }
+await ext.beforeRegisterNodeDef(NodeType, { name: "LoraVaultLoader" });
+const ta = document.createElement("textarea");
+const node = Object.create(NodeType.prototype);
+node.size = [300, 200]; node.properties = {};
+node.widgets = [{ name: "lora_text", value: "", inputEl: ta, callback() {} }];
+node.addDOMWidget = (n, t, el) => { document.getElementById("host").append(el); el.style.height = "620px"; return {}; };
+node.setSize = (s) => { node.size = s; };
+NodeType.prototype.onNodeCreated.call(node);
+window.__node = node; window.__ready = true;
+</script></body></html>

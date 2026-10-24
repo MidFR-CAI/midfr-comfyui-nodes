@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lora Vault</title>
+<style>
+:root{--bg:#16181d;--panel:#1f232b;--panel2:#262b35;--line:#343a46;--fg:#e6e8ee;--dim:#8f98a8;--accent:#4c8dff;--ok:#3fb97a;--warn:#e0a82e;--bad:#e5594b}
+@media (prefers-color-scheme: light){:root{--bg:#f4f5f8;--panel:#fff;--panel2:#eef0f5;--line:#d5d9e2;--fg:#1c2230;--dim:#667085}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+h1{font-size:18px;margin:0 12px 0 0}
+input,select,button,textarea{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--accent)}button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+button.sm{padding:2px 8px;font-size:12px}button:disabled{opacity:.55;cursor:default}
+main{padding:16px;max-width:1400px;margin:0 auto}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button.on{border-color:var(--accent);color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.tile{position:relative;aspect-ratio:2/3;border-radius:10px;overflow:hidden;background:#0c0d10;cursor:pointer;border:2px solid transparent;padding:0;display:block;width:100%;color:#fff}
+.tile:hover,.tile:focus-visible{border-color:var(--accent);outline:none}.tile.bad{border-color:var(--bad)}.tile.warn{border-color:var(--warn)}
+.tile .pv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:center/cover no-repeat}
+.tile .pv.blur{filter:blur(16px);transform:scale(1.1)}
+.tile .cap{position:absolute;left:0;right:0;bottom:0;padding:34px 10px 9px;background:linear-gradient(transparent,#000d);opacity:0;transition:opacity .15s;text-align:left;pointer-events:none}
+.tile:hover .cap,.tile:focus-visible .cap{opacity:1}
+@media (hover:none){.tile .cap{opacity:1}}
+.tile .cap b{display:block;font-size:13px;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.tile .cap span{font-size:11px;opacity:.8}
+.tile .badges{position:absolute;top:6px;left:6px;right:6px;display:flex;gap:4px;flex-wrap:wrap;pointer-events:none}
+.tile .badges i{font-style:normal;font-size:11px;background:#000a;border-radius:9px;padding:1px 7px;color:#fff}
+.tile .badges i.ok{background:#1d7a4ecc}.tile .badges i.warn{background:#a97a0ccc}.tile .badges i.bad{background:#b3382dcc}
+.tile.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.tile.sel::after{content:"✓";position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;z-index:2}
+body.selecting .tile{user-select:none}body.selecting .tile:not(.sel) .pv{opacity:.82}
+#selbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:20;display:none;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:8px 12px;box-shadow:0 6px 24px #000a}
+body.selecting #selbar{display:flex}#selbar b{min-width:90px}
+#band{position:fixed;border:1px solid var(--accent);background:#4a7cff33;z-index:19;pointer-events:none;display:none}
+.tile .bar{position:absolute;left:8px;right:8px;bottom:6px}
+.vrow .vt{width:34px;height:46px;border-radius:4px;background:#0c0d10 center/cover;flex:none}.vrow .vt.blur{filter:blur(6px)}
+.cats{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);align-items:center}
+.cats .chip{margin:0;padding:2px 11px;font-size:13px;cursor:pointer}.cats .chip.zero{opacity:.45}.cats .chip b{font-weight:500;opacity:.7;margin-left:4px}
+.vchips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.chip.unsaved{border-style:dashed}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;gap:10px;padding:10px;cursor:pointer}
+.card:hover{border-color:var(--accent)}.card.bad{border-color:var(--bad)}.card.warn{border-color:var(--warn)}
+.thw{overflow:hidden;border-radius:6px;flex:none;position:relative}
+.th{width:84px;height:112px;background:#0c0d10 center/cover no-repeat}
+.th.blur,.big.blur,.strip .th.blur{filter:blur(14px)}
+.main{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+.t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.s{color:var(--dim);font-size:12px}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:0 8px;font-size:12px;margin:0 4px 4px 0;background:transparent;color:inherit}
+button.chip{cursor:pointer;padding:0 8px}button.chip:hover{border-color:var(--accent)}
+.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.warn{border-color:var(--warn);color:var(--warn)}.chip.bad{border-color:var(--bad);color:var(--bad)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}.chip.ghost{border-style:dashed;color:var(--dim)}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden;min-width:160px}.bar>i{display:block;height:100%;background:var(--accent)}
+dialog{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:12px;max-width:560px;width:92vw}
+dialog::backdrop{background:#000a}label.f{display:flex;flex-direction:column;gap:3px;margin:8px 0;font-size:12px;color:var(--dim)}
+label.f input,label.f textarea{color:var(--fg);font-size:14px}
+table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.msg{padding:8px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--line);margin-bottom:10px}.msg.bad{border-color:var(--bad)}
+
+/* detail dialog */
+#detail{max-width:1180px;width:96vw;height:92vh;padding:0;overflow:hidden}
+#detail[open]{display:flex;flex-direction:column}
+.dhead{display:flex;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.dhead h2{margin:0;font-size:17px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dbody{flex:1;overflow:auto;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;padding:14px}
+@media (max-width:860px){.dbody{grid-template-columns:1fr}}
+.stage{background:#0c0d10;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:300px;max-height:62vh;overflow:hidden;position:relative}
+.big{max-width:100%;max-height:62vh;object-fit:contain;cursor:pointer}
+.reveal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;pointer-events:none;text-shadow:0 1px 6px #000}
+.strip{display:flex;gap:6px;overflow-x:auto;padding:8px 0}
+.strip .thw{cursor:pointer;border:2px solid transparent}.strip .thw.cur{border-color:var(--accent)}
+.strip .th{width:68px;height:90px}
+.gen{background:var(--panel2);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.gen h4,.sec h4{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim)}
+.block{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;max-height:170px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px}.kv b{color:var(--dim);font-weight:500}
+.sec{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.desc{background:var(--panel2);border-radius:8px;padding:10px;max-height:280px;overflow:auto;font-size:13px;line-height:1.5;word-break:break-word}
+.desc p{margin:0 0 .6em}.desc ul,.desc ol{margin:.3em 0 .6em 1.2em;padding:0}.desc a{color:var(--accent)}
+.desc h1,.desc h2,.desc h3,.desc h4,.desc h5,.desc h6{font-size:14px;margin:.7em 0 .3em}.desc code,.desc pre{background:var(--bg);border-radius:4px;padding:1px 4px}
+.vrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.vrow .nm{flex:1;min-width:140px}.vrow.cur{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+textarea.notes{width:100%;min-height:54px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Lora Vault</h1>
+  <input id="url" placeholder="Paste a Civitai link or version id…" size="34">
+  <button class="pri" id="addBtn">Add to vault</button>
+  <input id="q" placeholder="Filter saved…" size="18">
+  <select id="base"><option value="">All base models</option></select>
+  <label class="s"><input type="checkbox" id="onlyProblems"> problems only</label>
+  <label class="s"><input type="checkbox" id="onlyPinned"> pinned only</label>
+  <label class="s" title="Applies everywhere: this page and the ComfyUI node"><input type="checkbox" id="blurMature"> blur mature previews</label>
+  <span style="flex:1"></span>
+  <span class="s" id="helper" title="The Firefox extension fetches everything from Civitai for ComfyUI"></span>
+  <span class="s" id="usage"></span>
+  <button id="selBtn" title="Pick several LoRAs (click, shift-click, or drag a box) and remove them in one go">Select…</button>
+  <button id="checkAll" title="Re-check every saved model against Civitai now">Check all now</button>
+  <button id="settingsBtn">Settings</button>
+</header>
+<div id="cats" class="cats"></div>
+<div id="band"></div>
+<div id="selbar"><b id="selCount">0 selected</b>
+  <button id="selAll" title="Everything currently shown (respects the search, base model and category filters)">Select all shown</button>
+  <button id="selNone">Clear</button>
+  <button id="selDel" class="pri" style="background:var(--bad);border-color:var(--bad)">Remove selected…</button>
+  <button id="selDone">Done</button></div>
+<main>
+  <div id="notice"></div>
+  <div class="tabs"><button class="on" data-tab="lib">Library</button><button data-tab="ev">History</button></div>
+  <section id="lib"><div class="grid" id="grid"></div></section>
+  <section id="ev" hidden><table><thead><tr><th>When</th><th>Event</th><th>Details</th></tr></thead><tbody id="evBody"></tbody></table></section>
+</main>
+
+<dialog id="detail">
+  <div class="dhead"><h2 id="dTitle"></h2><span id="dProg"></span><button id="dClose">Close ✕</button></div>
+  <div class="dbody" id="dBody"></div>
+</dialog>
+
+<dialog id="dlg">
+  <h3 style="margin-top:0">Settings</h3>
+  <label class="f">Civitai API key (optional - Firefox's Civitai login is used too) <input id="s_key" type="password" autocomplete="off" placeholder="(unchanged)"></label>
+  <div class="s" id="keyHint"></div>
+  <label class="f">Civitai hosts to try, one per line (a 404 is retried on the next before anything counts as missing)
+    <textarea id="s_hosts" rows="2"></textarea></label>
+  <label class="f">How Civitai is reached
+    <select id="s_transport"><option value="firefox">Through the Firefox extension (recommended)</option><option value="direct">Directly from ComfyUI</option></select></label>
+  <label class="f">Downloading the LoRA file
+    <select id="s_dlmode"><option value="direct">Directly from ComfyUI (faster; Firefox only fetches the link)</option><option value="firefox">Through Firefox's download manager</option></select></label>
+  <div class="row"><button id="s_test" type="button">Test connection to Civitai</button><span class="s" id="testOut"></span></div>
+  <label class="f">LoRA folder (blank = ComfyUI's loras folder)<input id="s_dir"></label>
+  <label class="f">Download cache limit in GB (0 = unlimited; pinned files never count or get evicted)<input id="s_cache" type="number" step="0.5" min="0"></label>
+  <label class="f">Preview images kept on disk for UNPINNED LoRAs (all text metadata is always kept)<input id="s_unp" type="number" min="0" max="12"></label>
+  <label class="f">Preview images kept on disk for PINNED LoRAs (pinning also saves every example's prompt/steps/sampler, descriptions, and a self-contained export next to the weights)<input id="s_pin" type="number" min="1" max="60"></label>
+  <label class="f">Check for removed models every N hours (0 = never)<input id="s_int" type="number" min="0"></label>
+  <label class="s"><input type="checkbox" id="s_autopin"> Auto-pin cached weights if a model disappears from Civitai</label>
+  <p class="s">Extension server port changes take effect after restarting ComfyUI.</p>
+  <div class="row" style="justify-content:flex-end"><button id="s_cancel">Close</button><button class="pri" id="s_save">Save</button></div>
+</dialog>
+
+<script>
+const API = "/lora_vault/api";
+const $ = (s) => document.querySelector(s);
+const el = (t, p = {}, ...k) => { const e = document.createElement(t); for (const [a, v] of Object.entries(p)) { if (v === false || v == null) continue; if (a === "class") e.className = v; else if (a === "value") e.value = v; else if (a.startsWith("on")) e.addEventListener(a.slice(2), v); else e.setAttribute(a, v === true ? "" : v); } for (const c of k.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c)); return e; };
+async function call(p, method = "GET", body) {
+  const r = await fetch(API + p, body === undefined ? { method } : { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok === false) throw new Error(j.error || "HTTP " + r.status);
+  return j;
+}
+const GB = (b) => (b / 1024 ** 3).toFixed(2) + " GB";
+const fmtSize = (kb) => (!kb ? "" : kb > 1048576 ? (kb / 1048576).toFixed(2) + " GB" : kb > 1024 ? Math.round(kb / 1024) + " MB" : Math.round(kb) + " KB");
+const fmtNum = (n) => (n == null ? "–" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(n));
+const copy = (t, msg) => navigator.clipboard.writeText(t).then(() => notice(msg || "Copied."), () => notice("Couldn't copy (browser blocked clipboard access).", true));
+const STATUS = { possibly_removed: ["⚠ Possibly removed", "warn"], removed: ["✖ Removed from Civitai", "bad"], archived: ["✖ Archived", "bad"], taken_down: ["✖ Taken down", "bad"], unpublished: ["⚠ Unpublished", "warn"] };
+const LEVELS = { 1: "PG", 2: "PG-13", 4: "R", 8: "X", 16: "XXX" };
+const levelName = (n) => { for (const k of [16, 8, 4, 2, 1]) if (n & k) return LEVELS[k]; return ""; };
+const S = { cats: new Set(), blur: true, unmuted: false, revealed: new Set(), peek: null, fetched: new Set(), verErr: "", verBusy: false, selecting: false, picked: new Set(), anchor: null };
+const isBlurred = (level, key) => S.blur && (level || 0) >= 4 && !S.revealed.has(key);
+let items = [], jobs = {}, bulk = {}, timer = null, openVid = null, detail = null, curPrev = 0;
+
+function notice(msg, bad) { const n = $("#notice"); n.replaceChildren(msg ? el("div", { class: "msg" + (bad ? " bad" : "") }, msg) : ""); if (msg) { clearTimeout(notice._t); notice._t = setTimeout(() => n.replaceChildren(), 7000); } }
+
+// ---- safe rendering of Civitai's HTML descriptions (whitelist; everything else is unwrapped or dropped)
+const OK_TAGS = new Set("p br ul ol li strong b em i u s code pre blockquote hr h1 h2 h3 h4 h5 h6 a table thead tbody tr td th".split(" "));
+const DROP = new Set("script style iframe object embed form input button textarea select svg math link meta noscript template video audio img picture source".split(" "));
+function safeHtml(html) {
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  const out = document.createDocumentFragment();
+  (function walk(src, dst) {
+    for (const n of src.childNodes) {
+      if (n.nodeType === 3) dst.append(document.createTextNode(n.textContent));
+      else if (n.nodeType === 1) {
+        const tag = n.tagName.toLowerCase();
+        if (DROP.has(tag)) continue;
+        if (!OK_TAGS.has(tag)) { walk(n, dst); continue; }
+        const e = document.createElement(tag);
+        if (tag === "a") {
+          const href = n.getAttribute("href") || "";
+          if (/^https?:\/\//i.test(href)) { e.href = href; e.target = "_blank"; e.rel = "noopener noreferrer nofollow"; }
+        }
+        walk(n, e); dst.append(e);
+      }
+    }
+  })(doc.body, out);
+  return out;
+}
+
+// ---------------------------------------------------------------- library
+let lastSig = "";
+async function load(quiet) {
+  const p = new URLSearchParams({ q: $("#q").value, base: $("#base").value });
+  if ($("#onlyProblems").checked) p.set("status", "problem");
+  if ($("#onlyPinned").checked) p.set("pinned", "1");
+  if (S.cats.size) p.set("cat", [...S.cats].join(","));
+  const r = await call("/list?" + p);
+  const sig = p.toString() + JSON.stringify([r.items, r.bases, r.categories, jobs, bulk]);
+  if (quiet && sig === lastSig) return;   // polling: leave the grid (and its playing videos) alone
+  lastSig = sig;
+  items = r.items;
+  renderCats(r.categories || []);
+  const sel = $("#base"), cur = sel.value;
+  sel.replaceChildren(el("option", { value: "" }, "All base models"), ...r.bases.map((b) => el("option", { value: b }, b)));
+  sel.value = cur;
+  render();
+  try { const h = await call("/relay/status"); const e = $("#helper"); e.textContent = h.transport === "direct" ? "direct mode" : h.connected ? "● Firefox helper connected" : "○ Firefox helper NOT connected"; e.style.color = h.transport === "direct" || h.connected ? "var(--ok)" : "var(--bad)"; } catch (_) {}
+  const u = await call("/usage");
+  $("#usage").textContent = `cache ${GB(u.cache_bytes)}${u.limit_bytes ? " / " + GB(u.limit_bytes) : ""} · pinned ${GB(u.pinned_bytes)} (${u.pinned_files})`;
+}
+
+function renderCats(cats) {
+  const box = $("#cats");
+  box.hidden = !cats.some((c) => c.count) && !S.cats.size;
+  box.replaceChildren(
+    el("button", { class: "chip" + (S.cats.size ? "" : " on"), onclick: () => { S.cats.clear(); load(); } }, "All"),
+    ...cats.map((c) => el("button", { class: "chip" + (S.cats.has(c.key) ? " on" : "") + (c.count ? "" : " zero"),
+      title: c.count ? `${c.count} saved model${c.count > 1 ? "s" : ""} tagged "${c.label}" on Civitai` : "None of your saved LoRAs carry this Civitai tag",
+      onclick: () => { S.cats.has(c.key) ? S.cats.delete(c.key) : S.cats.add(c.key); load(); } }, c.label, el("b", {}, String(c.count)))));
+}
+
+const localChip = (v) => v.local === "pinned" ? ["📌", "ok", "Pinned"] : v.local === "cached" ? ["✔", "ok", "On disk"] : ["☁", "", "Not downloaded"];
+
+function render() {
+  resetVids(); setTimeout(paintSel, 0);
+  const bad = items.filter((i) => i.status !== "ok" && i.status !== "possibly_removed");
+  if (bad.length) notice(`${bad.length} saved LoRA${bad.length > 1 ? "s were" : " was"} removed from Civitai: ${bad.map((b) => b.model_name).join(", ")}. Your saved metadata and any downloaded weights are kept.`, true);
+  const groups = new Map();
+  for (const v of items) { if (!groups.has(v.model_id)) groups.set(v.model_id, []); groups.get(v.model_id).push(v); }
+  $("#grid").replaceChildren(...(groups.size ? [...groups.values()].map(groupCard) : [el("div", { class: "s" }, "Nothing here yet. Paste a Civitai link above, use the browser extension, or search from the ComfyUI node.")]));
+}
+
+// ---------------------------------------------------------------- select + batch remove
+const shownModels = () => [...new Set(items.map((i) => i.model_id))];
+function paintSel() {
+  document.body.classList.toggle("selecting", S.selecting);
+  for (const t of $("#grid").children) if (t.dataset && t.dataset.mid) t.classList.toggle("sel", S.picked.has(isNaN(t.dataset.mid) ? t.dataset.mid : Number(t.dataset.mid)));
+  const n = S.picked.size; $("#selCount").textContent = n + " selected"; $("#selDel").disabled = !n;
+  $("#selBtn").classList.toggle("pri", S.selecting);
+}
+function pickTile(mid, range) {
+  const order = shownModels();
+  if (range && S.anchor != null && order.includes(S.anchor)) {
+    const a = order.indexOf(S.anchor), b = order.indexOf(mid);
+    for (const m of order.slice(Math.min(a, b), Math.max(a, b) + 1)) S.picked.add(m);
+  } else { S.picked.has(mid) ? S.picked.delete(mid) : S.picked.add(mid); S.anchor = mid; }
+  paintSel();
+}
+function setSelecting(on) { S.selecting = on; if (!on) { S.picked.clear(); S.anchor = null; } paintSel(); }
+$("#selBtn").onclick = () => setSelecting(!S.selecting);
+$("#selDone").onclick = () => setSelecting(false);
+$("#selNone").onclick = () => { S.picked.clear(); paintSel(); };
+$("#selAll").onclick = () => { for (const m of shownModels()) S.picked.add(m); paintSel(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.selecting && !$("#detail").open) setSelecting(false); });
+// drag a box over tiles to highlight them
+let drag = null, swallow = false;
+$("#grid").addEventListener("pointerdown", (e) => {
+  if (!S.selecting || e.button !== 0) return;
+  drag = { x: e.clientX, y: e.clientY, moved: false, base: new Set(e.ctrlKey || e.metaKey || e.shiftKey ? S.picked : []) };
+});
+document.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+  drag.moved = true;
+  const x1 = Math.min(drag.x, e.clientX), x2 = Math.max(drag.x, e.clientX), y1 = Math.min(drag.y, e.clientY), y2 = Math.max(drag.y, e.clientY);
+  const b = $("#band"); b.style.display = "block"; Object.assign(b.style, { left: x1 + "px", top: y1 + "px", width: x2 - x1 + "px", height: y2 - y1 + "px" });
+  const hit = new Set(drag.base);
+  for (const t of $("#grid").children) {
+    if (!t.dataset || !t.dataset.mid) continue;
+    const r = t.getBoundingClientRect();
+    if (r.right > x1 && r.left < x2 && r.bottom > y1 && r.top < y2) hit.add(Number(t.dataset.mid));
+  }
+  S.picked = hit; paintSel();
+  const edge = 60; if (e.clientY < edge + 60) scrollBy(0, -14); else if (e.clientY > innerHeight - edge) scrollBy(0, 14);
+});
+document.addEventListener("pointerup", () => { if (drag && drag.moved) { swallow = true; setTimeout(() => (swallow = false), 0); } drag = null; $("#band").style.display = "none"; });
+$("#grid").addEventListener("click", (e) => { if (swallow) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+async function removeModels(mids, label) {
+  const rows = items.filter((i) => mids.includes(i.model_id));
+  const withFiles = rows.filter((r) => r.local && r.local !== "none"), pinned = rows.filter((r) => r.local === "pinned");
+  const gb = withFiles.reduce((a, r) => a + (r.file_size_kb || 0), 0) / 1048576;
+  let msg = `Remove ${label} from the vault?\n\nThis forgets the saved metadata and previews${rows.length ? ` (${rows.length} version${rows.length > 1 ? "s" : ""} shown here)` : ""}.`;
+  if (pinned.length) msg += `\n\n⚠ ${pinned.length} of them ${pinned.length > 1 ? "are" : "is"} PINNED.`;
+  if (!confirm(msg)) return false;
+  let del = false;
+  if (withFiles.length) del = confirm(`${withFiles.length} downloaded file${withFiles.length > 1 ? "s" : ""}${gb ? ` (about ${gb.toFixed(1)} GB)` : ""} found.\n\nOK = delete the files too\nCancel = keep the files on disk`);
+  try {
+    const r = await call("/remove_many", "POST", { model_ids: mids, delete_files: del });
+    notice(`Removed ${r.removed} version${r.removed === 1 ? "" : "s"}${del ? " and their files" : ""}.` + (r.errors.length ? " Problems: " + r.errors.join("; ") : ""), !!r.errors.length);
+    return true;
+  } catch (e) { notice(e.message, true); return false; }
+}
+$("#selDel").onclick = async () => {
+  const mids = [...S.picked]; if (!mids.length) return;
+  if (await removeModels(mids, `${mids.length} model${mids.length > 1 ? "s" : ""} (all their versions)`)) { S.picked.clear(); lastSig = ""; await load(); paintSel(); }
+};
+
+const MAX_VIDS = 8;
+let _vo = null;
+const liveVids = new Set();
+function resetVids() {   // called before the grid is rebuilt: free every playing cover
+  for (const h of [...liveVids]) { const v = h.firstChild; if (v) { try { v.pause(); } catch (_) {} v.removeAttribute("src"); v.load(); v.remove(); } }
+  liveVids.clear(); if (_vo) { _vo.disconnect(); _vo = null; }
+}
+function vidObserver() {
+  if (_vo) return _vo;
+  const live = liveVids;
+  const stop = (h) => { const v = h.firstChild; if (v) { try { v.pause(); } catch (_) {} v.removeAttribute("src"); v.load(); v.remove(); } live.delete(h); };
+  _vo = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const h = e.target;
+      if (!h.isConnected) { stop(h); _vo.unobserve(h); continue; }
+      if (e.isIntersecting && !h.firstChild && live.size < MAX_VIDS) {
+        const v = el("video", { class: "pv", src: h.dataset.src, loop: true, playsinline: true, preload: "metadata" });
+        v.muted = true; v.addEventListener("loadeddata", () => v.play().catch(() => {}));
+        v.addEventListener("error", () => { stop(h); });
+        h.append(v); live.add(h);
+      } else if (!e.isIntersecting && h.firstChild) stop(h);
+    }
+  }, { rootMargin: "100px" });
+  return _vo;
+}
+
+function groupCard(vs) {
+  const lead = vs.find((v) => v.thumb || v.thumb_video) || vs[0];
+  const worst = vs.find((v) => STATUS[v.status] && STATUS[v.status][1] === "bad") || vs.find((v) => STATUS[v.status]);
+  const j = vs.map((v) => jobs[v.version_id]).find((x) => x && (x.state === "downloading" || x.state === "queued"));
+  const blurred = isBlurred(lead.thumb_nsfw, "t" + lead.version_id);
+  const pv = el("div", { class: "pv" + (blurred ? " blur" : "") });
+  if (lead.thumb) pv.style.backgroundImage = `url("${lead.thumb}")`;
+  const kids = [pv];
+  if (lead.thumb_video && !blurred) {          // the cover is a video: play it silently, like Civitai does
+    // Only tiles on screen get a real <video> (max MAX_VIDS at once); scrolled-away ones are torn down so
+    // hundreds of covers can't pile up decoders and memory.
+    const holder = el("div", { class: "pv vslot", style: "background:none" });
+    holder.dataset.src = lead.thumb_video;
+    vidObserver().observe(holder);
+    kids.push(holder);
+  }
+  const pinned = vs.some((v) => v.local === "pinned");
+  kids.push(el("div", { class: "badges" },
+    vs.length > 1 && el("i", { title: vs.map((v) => v.version_name).join(", ") }, `${vs.length} versions`),
+    pinned && el("i", { class: "ok" }, "📌"),
+    worst && el("i", { class: STATUS[worst.status][1], title: worst.status_detail }, STATUS[worst.status][0])),
+    el("div", { class: "cap" }, el("b", {}, lead.model_name),
+      el("span", {}, [lead.creator && "by " + lead.creator, [...new Set(vs.map((v) => v.base_model).filter(Boolean))].join(" · ")].filter(Boolean).join(" · "))),
+    j && el("div", { class: "bar" }, el("i", { style: `width:${j.total ? Math.min(100, j.done / j.total * 100) : 20}%` })));
+  const t = el("button", { class: "tile" + (worst ? " " + STATUS[worst.status][1] : "") + (S.picked.has(lead.model_id) ? " sel" : ""), title: lead.model_name,
+    onclick: (ev) => { if (S.selecting) { pickTile(lead.model_id, ev.shiftKey); } else openDetail(lead.version_id); } }, ...kids);
+  t.dataset.mid = lead.model_id;
+  return t;
+}
+
+// ---------------------------------------------------------------- detail view
+async function openDetail(vid, keepPreview) {
+  openVid = vid;
+  if (!keepPreview) { curPrev = 0; S.revealed.clear(); S.peek = null; }
+  try { detail = (await call("/version/" + vid)).item; } catch (e) { notice(e.message, true); return; }
+  renderDetail();
+  if (!$("#detail").open) $("#detail").showModal();
+  if (!detail.versions_known && !S.fetched.has(detail.model_id)) loadVersions(false);
+}
+// The model page's other versions come from Civitai (through Firefox) and are remembered afterwards.
+async function loadVersions(force) {
+  const d = detail; if (!d) return;
+  S.fetched.add(d.model_id); S.verErr = ""; S.verBusy = true; renderDetail();
+  try {
+    const r = await call("/model_versions/" + d.model_id);
+    if (detail && detail.model_id === d.model_id) { detail.versions = r.versions; detail.versions_known = true; }
+  } catch (e) { S.verErr = e.message; }
+  S.verBusy = false; if (detail && detail.model_id === d.model_id) renderDetail();
+}
+function peekView(p) {
+  const base = detail;
+  return { ...base, unsaved: true, version_id: p.id, version_name: p.name || "v" + p.id, base_model: p.baseModel || base.base_model,
+    trigger_words: p.trainedWords || [], version_description_html: p.description_html || "", description_html: base.description_html,
+    previews: (p.images || []).map((i, n) => ({ idx: n, type: i.type, nsfwLevel: i.nsfwLevel || 0, meta: i.meta, full: i.url, src: i.src, local: false })),
+    local: "none", status: "ok", status_detail: "", pinned: false, file: null, alias: null, notes: "",
+    stats: { downloadCount: p.downloads }, published_at: p.publishedAt, civitai_url: `https://civitai.com/models/${base.model_id}?modelVersionId=${p.id}` };
+}
+
+function metaBlocks(m) {
+  if (!m || !Object.keys(m).length) return [el("div", { class: "s" }, "No generation data was published with this image.")];
+  const prompt = m.prompt ?? m.Prompt, neg = m.negativePrompt ?? m.negative_prompt ?? m["Negative prompt"];
+  const out = [];
+  const blk = (label, text) => out.push(el("div", { class: "sec", style: "margin:0" },
+    el("div", { class: "row" }, el("h4", { style: "flex:1" }, label), el("button", { class: "sm", onclick: () => copy(text, label + " copied.") }, "Copy")),
+    el("div", { class: "block" }, text)));
+  if (prompt) blk("Prompt", String(prompt));
+  if (neg) blk("Negative prompt", String(neg));
+  const skip = new Set(["prompt", "Prompt", "negativePrompt", "negative_prompt", "Negative prompt", "resources", "civitaiResources", "comfy", "workflow"]);
+  const labels = { cfgScale: "CFG scale", clipSkip: "Clip skip", steps: "Steps", sampler: "Sampler", seed: "Seed", Size: "Size", Model: "Checkpoint" };
+  const kv = Object.entries(m).filter(([k, v]) => !skip.has(k) && v !== null && typeof v !== "object" && v !== "");
+  if (kv.length) out.push(el("div", { class: "kv" }, ...kv.flatMap(([k, v]) => [el("b", {}, labels[k] || k), el("span", {}, String(v))])));
+  const res = Array.isArray(m.resources) ? m.resources : [];
+  const cres = Array.isArray(m.civitaiResources) ? m.civitaiResources : [];
+  if (res.length || cres.length) out.push(el("div", { class: "sec", style: "margin:0" }, el("h4", {}, "Resources used"),
+    ...res.map((r) => el("div", { class: "s" }, `${r.name || "?"}${r.type ? " (" + r.type + ")" : ""}${r.weight != null ? " × " + r.weight : ""}`)),
+    ...cres.map((r) => el("div", { class: "s" }, `Civitai version ${r.modelVersionId || "?"}${r.type ? " (" + r.type + ")" : ""}${r.weight != null ? " × " + r.weight : ""}`))));
+  const asText = [prompt, neg ? "Negative prompt: " + neg : "", kv.map(([k, v]) => `${labels[k] || k}: ${v}`).join(", ")].filter(Boolean).join("\n");
+  out.push(el("div", { class: "row" }, el("button", { class: "sm", onclick: () => copy(asText, "All generation data copied.") }, "Copy all as text")));
+  return out;
+}
+
+function renderDetail() {
+  const d = S.peek ? peekView(S.peek) : detail, vid = d.version_id;
+  $("#dTitle").textContent = `${d.model_name} — ${d.version_name}`;
+  const act = (name, body = {}, after) => async (ev) => { const b = ev && ev.target; if (b) b.disabled = true; try { await call("/" + name, "POST", { version_id: vid, ...body }); if (name === "pin" || name === "download") startPolling(); await after?.(); await load(); await openDetail(vid, true); } catch (e) { notice(e.message, true); } if (b) b.disabled = false; };
+  const lc = localChip(d), st = STATUS[d.status];
+  const prevs = d.previews || [];
+  if (curPrev >= prevs.length) curPrev = 0;
+  const cp = prevs[curPrev];
+  const localCount = prevs.filter((p) => p.local).length;
+
+  // ---- left: gallery + generation data
+  const left = el("div", {});
+  if (cp) {
+    const key = `p${vid}_${curPrev}`, blurred = isBlurred(cp.nsfwLevel, key);
+    const stage = el("div", { class: "stage", title: blurred ? "Click to reveal" : "" });
+    const isVid = cp.type !== "image";
+    const media = !isVid ? el("img", { class: "big" + (blurred ? " blur" : ""), src: cp.src, alt: "preview" }) :
+      el("video", { class: "big" + (blurred ? " blur" : ""), src: cp.local ? cp.src : cp.full, controls: !blurred, loop: true, autoplay: !blurred, playsinline: true });
+    if (isVid) { media.muted = !S.unmuted; media.defaultMuted = true; if (!blurred) media.play().catch(() => {}); }
+    media.onerror = () => { if (cp.local && media.src !== cp.full) media.src = cp.full; else media.replaceWith(el("div", { class: "s", style: "padding:20px" }, "Couldn't load this image (offline, or removed from Civitai).")); };
+    media.onclick = () => { if (blurred) { S.revealed.add(key); renderDetail(); } };
+    stage.append(media, blurred ? el("div", { class: "reveal" }, `${levelName(cp.nsfwLevel)} — click to reveal`) : "");
+    left.append(stage,
+      el("div", { class: "row s", style: "margin-top:6px" },
+        el("span", {}, `Image ${curPrev + 1} of ${prevs.length}`), cp.nsfwLevel ? el("span", { class: "chip" }, levelName(cp.nsfwLevel)) : "",
+        cp.width ? el("span", {}, `${cp.width}×${cp.height}`) : "",
+        el("span", { class: "chip " + (cp.local ? "ok" : "") }, cp.local ? "saved on disk" : "web only"),
+        isVid && el("button", { class: "sm", title: "Audio is off by default", onclick: (ev) => { S.unmuted = !S.unmuted; media.muted = !S.unmuted; if (!blurred) media.play().catch(() => {}); ev.target.textContent = S.unmuted ? "🔊 Mute" : "🔇 Unmute"; } }, S.unmuted ? "🔊 Mute" : "🔇 Unmute"),
+        el("a", { href: cp.full, target: "_blank", rel: "noopener", style: "color:var(--accent)" }, "full size ↗")));
+    left.append(el("div", { class: "strip" }, ...prevs.map((p, i) => {
+      const k = `p${vid}_${i}`;
+      const th = el("div", { class: "th" + (isBlurred(p.nsfwLevel, k) ? " blur" : "") });
+      const isV = p.type !== "image" && !isBlurred(p.nsfwLevel, k);
+      th.style.backgroundImage = p.type === "image" ? `url("${p.src}")` : "";
+      const tv = isV ? el("video", { src: p.local ? p.src : p.full, preload: "metadata", muted: true, playsinline: true, style: "width:100%;height:100%;object-fit:cover;pointer-events:none" }) : null;
+      if (tv) { tv.muted = true; th.append(tv); }
+      return el("div", { class: "thw" + (i === curPrev ? " cur" : ""), onclick: () => { curPrev = i; renderDetail(); } }, th,
+        p.type !== "image" && !tv ? el("div", { class: "reveal", style: "font-size:11px" }, "▶ video") : "");
+    })));
+    if (!d.pinned && prevs.length > localCount) left.append(el("div", { class: "s" }, `Only ${localCount} of ${prevs.length} preview image${prevs.length > 1 ? "s are" : " is"} stored on disk (the rest load from Civitai). `, "📌 Pin this LoRA to keep every preview and its generation data permanently."));
+    left.append(el("div", { class: "gen" }, el("h4", {}, "Generation data for this image"), ...metaBlocks(cp.meta)));
+  } else {
+    left.append(el("div", { class: "gen" }, el("div", {}, "No preview images saved for this LoRA."),
+      el("div", { class: "s" }, "Mature previews are hidden by civitai.com's API for some accounts/hosts. Try fetching them again:"),
+      el("button", { onclick: act("refresh_previews") }, "Fetch previews")));
+  }
+
+  // ---- right: info
+  const right = el("div", {});
+  const j = jobs[vid], busy = j && (j.state === "downloading" || j.state === "queued");
+  const chips = el("div", { class: "vchips" }, ...(detail.versions || []).map((v) => el("button", { class: "chip" + (v.id === vid ? " on" : "") + (v.saved ? "" : " unsaved"),
+    title: `${v.baseModel || ""}${v.saved ? "" : " - not saved yet, click to look at it"}`,
+    onclick: () => { curPrev = 0; S.revealed.clear(); if (v.saved) { S.peek = null; openDetail(v.id); } else { S.peek = v; renderDetail(); } } }, (v.saved ? "" : "＋ ") + (v.name || "v" + v.id))));
+  right.append((detail.versions || []).length > 1 ? chips : "",
+    el("div", { class: "sec" },
+      el("div", { class: "row" },
+        el("span", { class: "chip" }, d.base_model || "?"), el("span", { class: "chip " + lc[1] }, `${lc[0]} ${lc[2]}`),
+        st && el("span", { class: "chip " + st[1], title: d.status_detail }, st[0]),
+        d.creator && el("span", { class: "s" }, "by " + d.creator),
+        d.availability && d.availability !== "Public" && el("span", { class: "chip warn" }, d.availability)),
+      st && d.status_detail && el("div", { class: "s", style: "color:var(--bad)" }, d.status_detail),
+      busy && el("div", { class: "bar" }, el("i", { style: `width:${j.total ? Math.min(100, j.done / j.total * 100) : 20}%` })),
+      j && j.state === "error" && el("div", { class: "s", style: "color:var(--bad);white-space:pre-wrap" }, j.error),
+      !d.unsaved && d.local === "none" && j && j.state === "error" && el("div", { class: "sec", style: "margin:0" },
+        el("div", { class: "s" }, "Locked or paid file? Download it yourself on Civitai (logged in), then point the vault at the file:"),
+        el("div", { class: "row" },
+          el("a", { href: d.civitai_url, target: "_blank", rel: "noopener", style: "color:var(--accent)" }, "Open on Civitai ↗"),
+          el("input", { id: "impPath", placeholder: "C:\\Users\\you\\Downloads\\file.safetensors", style: "flex:1;min-width:200px" }),
+          el("button", { onclick: async (ev) => { ev.target.disabled = true; try { await call("/import_file", "POST", { version_id: vid, path: $("#impPath").value }); notice("File added to the vault."); delete jobs[vid]; await load(); await openDetail(vid, true); } catch (e) { notice(e.message, true); ev.target.disabled = false; } } }, "I downloaded it myself"))),
+      d.unsaved ? el("div", { class: "row" },
+        el("span", { class: "chip warn" }, "not saved to your vault yet"),
+        el("button", { class: "pri", onclick: async (ev) => { ev.target.disabled = true; try { await call("/save", "POST", { version_id: vid }); S.peek = null; await load(); await openDetail(vid); } catch (e) { notice(e.message, true); ev.target.disabled = false; } } }, "Save this version"),
+        el("a", { href: d.civitai_url, target: "_blank", rel: "noopener", style: "color:var(--accent)" }, "Civitai ↗")) :
+      el("div", { class: "row" },
+        d.local === "pinned" ? el("button", { onclick: act("unpin") }, "Unpin") : el("button", { class: "pri", title: "Download the weights now and keep them - plus every preview, prompt and description - permanently", onclick: act("pin") }, "📌 Pin (keep everything)"),
+        d.local === "none" && el("button", { onclick: act("download"), title: "Download to the cache now" }, "⬇ Download now"),
+        d.local === "cached" && el("button", { onclick: act("delete_local") }, "Free space"),
+        el("button", { onclick: act("check") }, "Check still exists"),
+        el("button", { onclick: act("refresh_previews"), title: "Re-fetch example images and their generation data" }, "↻ Refresh previews"),
+        el("button", { onclick: () => copy(`<lora:${d.tag_ref || "v" + vid}:1>`, "Tag copied - paste it into the Lora Vault Loader node.") }, "Copy tag"),
+        el("a", { href: d.civitai_url, target: "_blank", rel: "noopener", style: "color:var(--accent)" }, "Civitai ↗"),
+        el("button", { onclick: async () => { if (!confirm(`Remove "${d.model_name} — ${d.version_name}" from the vault?`)) return; const del = d.local !== "none" && confirm("Also delete the downloaded file?\n\nOK = delete the file too, Cancel = keep the file on disk."); try { await call("/remove", "POST", { version_id: vid, delete_files: del }); $("#detail").close(); await load(); } catch (e) { notice(e.message, true); } } }, "Remove"),
+        el("button", { title: "Remove every saved version of this model", onclick: async () => { if (await removeModels([d.model_id], `ALL saved versions of "${d.model_name}"`)) { $("#detail").close(); lastSig = ""; await load(); } } }, "Remove all versions"))),
+
+    // versions
+    el("div", { class: "sec" }, el("div", { class: "row" }, el("h4", { style: "flex:1" }, `Versions on this model page (${(detail.versions || []).length})`),
+      el("button", { class: "sm", disabled: S.verBusy, title: "Re-read the version list from Civitai", onclick: () => loadVersions(true) }, S.verBusy ? "Loading…" : "↻ Refresh")),
+      el("div", { class: "s" }, "Click any version to look at its previews and info - you don't need to save it first. Save several to use them together."),
+      S.verErr && el("div", { class: "s", style: "color:var(--bad)" }, "Couldn't load the full list from Civitai: " + S.verErr + " (is the Firefox helper connected?)"),
+      ...(detail.versions || []).map((v) => {
+        const l = v.saved ? localChip(v) : null, s2 = v.saved && STATUS[v.status];
+        const open = () => { curPrev = 0; S.revealed.clear(); if (v.saved) { S.peek = null; openDetail(v.id); } else { S.peek = v; renderDetail(); } };
+        const t = el("div", { class: "vt" + (isBlurred(v.thumb_nsfw, "vt" + v.id) ? " blur" : "") });
+        if (v.thumb) t.style.backgroundImage = `url("${v.thumb}")`;
+        return el("div", { class: "vrow" + (v.id === vid ? " cur" : "") }, t,
+          el("div", { class: "nm", style: "cursor:pointer", onclick: open }, el("b", {}, v.name || "v" + v.id),
+            el("div", { class: "s" }, `${v.baseModel || ""}${v.downloads != null ? " · ⬇ " + fmtNum(v.downloads) : ""}${v.publishedAt ? " · " + String(v.publishedAt).slice(0, 10) : ""}`),
+            (v.trainedWords || []).length > 0 && el("div", { class: "s" }, "🏷 " + v.trainedWords.slice(0, 4).join(", "))),
+          v.saved ? [el("span", { class: "chip " + (s2 ? s2[1] : l[1]) }, s2 ? s2[0] : `${l[0]} ${l[2]}`),
+            el("button", { class: "sm", onclick: () => copy(`<lora:${v.tag_ref || "v" + v.id}:1>`, "Tag copied.") }, "Copy tag")] :
+            el("button", { class: "sm pri", onclick: async (ev) => { ev.target.disabled = true; ev.target.textContent = "Saving…"; try { await call("/save", "POST", { version_id: v.id }); await load(); await openDetail(detail.version_id, true); } catch (e) { notice(e.message, true); ev.target.disabled = false; ev.target.textContent = "Save"; } } }, "Save"),
+          v.id !== vid && el("button", { class: "sm", onclick: open }, "View"));
+      }),
+      el("div", { class: "row" },
+        (detail.versions || []).some((v) => !v.saved) && el("button", { onclick: async (ev) => { ev.target.disabled = true; try { await call("/save_model", "POST", { model_id: d.model_id }); startPolling(); notice("Saving every version of this model in the background…"); } catch (e) { notice(e.message, true); } } }, `Save all ${(detail.versions || []).length} versions`),
+        (detail.versions || []).filter((v) => v.saved).length > 1 && el("button", { onclick: () => copy(detail.versions.filter((v) => v.saved).map((v) => `<lora:${v.tag_ref || "v" + v.id}:1>`).join(" "), "Tags for all saved versions copied.") }, "Copy tags for all saved versions"),
+        bulk[d.model_id] && bulk[d.model_id].state === "running" && el("span", { class: "s" }, `saving ${bulk[d.model_id].done}/${bulk[d.model_id].total}…`))),
+
+    // trigger words
+    el("div", { class: "sec" }, el("div", { class: "row" }, el("h4", { style: "flex:1" }, "Trigger words"),
+      (d.trigger_words || []).length > 0 && el("button", { class: "sm", onclick: () => copy(d.trigger_words.join(", "), "All trigger words copied.") }, "Copy all")),
+      (d.trigger_words || []).length ? el("div", {}, ...d.trigger_words.map((w) => el("button", { class: "chip", title: "Click to copy", onclick: () => copy(w, "Copied “" + w + "”.") }, w))) : el("div", { class: "s" }, "None listed.")),
+
+    // facts
+    el("div", { class: "sec" }, el("h4", {}, "Details"),
+      el("div", { class: "kv" },
+        el("b", {}, "Stats"), el("span", {}, `⬇ ${fmtNum((d.stats || {}).downloadCount)}   👍 ${fmtNum((d.stats || {}).thumbsUpCount)}${(d.stats || {}).commentCount != null ? "   💬 " + fmtNum(d.stats.commentCount) : ""}`),
+        el("b", {}, "Type"), el("span", {}, d.model_type || ""),
+        d.published_at && [el("b", {}, "Published"), el("span", {}, String(d.published_at).slice(0, 10))],
+        d.file && [el("b", {}, "File"), el("span", {}, `${d.file.name}${d.file.size_kb ? " · " + fmtSize(d.file.size_kb) : ""}`)],
+        d.file && d.file.sha256 && [el("b", {}, "SHA-256"), el("span", { style: "word-break:break-all;font:11px ui-monospace,monospace" }, d.file.sha256)],
+        (d.tags || []).length > 0 && [el("b", {}, "Tags"), el("span", {}, d.tags.join(", "))],
+        Object.keys(d.license || {}).length > 0 && [el("b", {}, "License"), el("span", {}, Object.entries(d.license).map(([k, v]) => `${k.replace("allow", "")}: ${JSON.stringify(v).replace(/[{}"[\]]/g, "")}`).join(" · "))])),
+
+    // descriptions
+    d.version_description_html && el("div", { class: "sec" }, el("h4", {}, "Version description"), el("div", { class: "desc" }, safeHtml(d.version_description_html))),
+    el("div", { class: "sec" }, el("h4", {}, "Model description"), d.description_html ? el("div", { class: "desc" }, safeHtml(d.description_html)) : el("div", { class: "s" }, "No description.")),
+
+    // my notes
+    !d.unsaved && el("div", { class: "sec" }, el("h4", {}, "My notes"),
+      el("input", { placeholder: "Nickname (usable as <lora:nickname:1>)", value: d.alias || "", onchange: (e) => call("/update", "POST", { version_id: vid, alias: e.target.value.trim() || null }).then(() => notice("Saved.")).catch((x) => notice(x.message, true)) }),
+      el("textarea", { class: "notes", placeholder: "Notes: good strengths, what it pairs with…", value: d.notes || "", onchange: (e) => call("/update", "POST", { version_id: vid, notes: e.target.value }).then(() => notice("Notes saved.")).catch((x) => notice(x.message, true)) })));
+
+  $("#dBody").replaceChildren(left, right);
+}
+
+// ---------------------------------------------------------------- polling for downloads / bulk saves
+function startPolling() {
+  clearInterval(timer);
+  timer = setInterval(async () => {
+    try { const r = await call("/jobs"); jobs = r.jobs; bulk = r.bulk || {}; } catch (_) { return; }
+    const busy = Object.values(jobs).some((j) => j.state === "downloading" || j.state === "queued") || Object.values(bulk).some((b) => b.state === "running");
+    await load(true);
+    if ($("#detail").open && openVid) { try { const nd = (await call("/version/" + openVid)).item; if (JSON.stringify(nd) !== JSON.stringify(detail)) { detail = nd; renderDetail(); } } catch (_) {} }
+    if (!busy) { clearInterval(timer); const errs = Object.values(bulk).flatMap((b) => b.errors || []); if (errs.length) notice("Some versions couldn't be saved: " + errs.join("; "), true); }
+  }, 1200);
+}
+
+async function loadEvents() {
+  const r = await call("/events");
+  $("#evBody").replaceChildren(...r.items.map((e) => el("tr", {}, el("td", {}, new Date(e.ts * 1000).toLocaleString()), el("td", {}, e.kind), el("td", {}, e.detail))));
+}
+
+// ---------------------------------------------------------------- wiring
+$("#addBtn").onclick = async () => {
+  const url = $("#url").value.trim(); if (!url) return;
+  $("#addBtn").disabled = true;
+  try { const r = await call("/save", "POST", { url }); notice(`Saved “${r.item.model_name} / ${r.item.version_name}”. It downloads the first time you run a workflow that uses it.`); $("#url").value = ""; await load(); }
+  catch (e) { notice(e.message, true); }
+  $("#addBtn").disabled = false;
+};
+$("#url").addEventListener("keydown", (e) => e.key === "Enter" && $("#addBtn").click());
+for (const id of ["#q", "#base", "#onlyProblems", "#onlyPinned"]) $(id).addEventListener("input", () => { clearTimeout(window._d); window._d = setTimeout(load, 200); });
+$("#blurMature").onchange = async (e) => {
+  S.blur = e.target.checked;
+  try { await call("/settings", "POST", { blur_mature: S.blur }); } catch (x) { notice(x.message, true); }
+  render(); if ($("#detail").open) renderDetail();
+};
+$("#checkAll").onclick = async () => { await call("/check_all", "POST", {}); notice("Checking all saved models in the background (about 1.5 s each). Results appear under History."); };
+$("#dClose").onclick = () => $("#detail").close();
+$("#detail").addEventListener("close", () => { openVid = null; load(); });
+$("#detail").addEventListener("click", (e) => { if (e.target === $("#detail")) $("#detail").close(); });
+document.querySelectorAll(".tabs button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
+  $("#lib").hidden = b.dataset.tab !== "lib"; $("#ev").hidden = b.dataset.tab !== "ev";
+  if (b.dataset.tab === "ev") loadEvents();
+});
+
+$("#settingsBtn").onclick = async () => {
+  const s = await call("/settings");
+  $("#s_key").value = ""; $("#keyHint").textContent = s.has_api_key ? `A key is saved (${s.api_key_hint}). Leave blank to keep it.` : "No API key set - fine if you're logged in to Civitai in Firefox.";
+  $("#s_hosts").value = s.civitai_hosts.join("\n"); $("#s_dir").value = s.lora_dir; $("#s_transport").value = s.transport; $("#s_dlmode").value = s.download_mode || "direct"; $("#testOut").textContent = "";
+  $("#s_cache").value = s.cache_limit_gb; $("#s_unp").value = s.unpinned_previews; $("#s_pin").value = s.pinned_previews;
+  $("#s_int").value = s.check_interval_hours; $("#s_autopin").checked = s.auto_pin_on_removal;
+  $("#dlg").showModal();
+};
+$("#s_test").onclick = async () => {
+  const out = $("#testOut"); out.textContent = "Testing…";
+  await call("/settings", "POST", { transport: $("#s_transport").value, civitai_hosts: $("#s_hosts").value, civitai_api_key: $("#s_key").value.trim() });
+  try { const r = await call("/test_connection", "POST", {}); out.textContent = "✔ Reached Civitai in " + r.ms + " ms"; out.style.color = "var(--ok)"; }
+  catch (e) { out.textContent = "✖ " + e.message; out.style.color = "var(--bad)"; }
+};
+$("#s_cancel").onclick = () => $("#dlg").close();
+$("#s_save").onclick = async () => {
+  await call("/settings", "POST", { civitai_api_key: $("#s_key").value.trim(), civitai_hosts: $("#s_hosts").value, lora_dir: $("#s_dir").value, transport: $("#s_transport").value, download_mode: $("#s_dlmode").value,
+    cache_limit_gb: parseFloat($("#s_cache").value) || 0, unpinned_previews: parseInt($("#s_unp").value) || 0, pinned_previews: parseInt($("#s_pin").value) || 40,
+    check_interval_hours: parseInt($("#s_int").value) || 0, auto_pin_on_removal: $("#s_autopin").checked });
+  $("#dlg").close(); notice("Settings saved."); load();
+};
+
+(async () => {
+  try { const s = await call("/settings"); S.blur = s.blur_mature !== false; $("#blurMature").checked = S.blur; } catch (_) {}
+  load().catch((e) => notice("Can't reach the vault: " + e.message, true));
+  call("/jobs").then((r) => { jobs = r.jobs; bulk = r.bulk || {}; if (Object.values(jobs).some((j) => j.state === "downloading") || Object.values(bulk).some((b) => b.state === "running")) startPolling(); }).catch(() => {});
+})();
+</script>
+</body>
+</html>

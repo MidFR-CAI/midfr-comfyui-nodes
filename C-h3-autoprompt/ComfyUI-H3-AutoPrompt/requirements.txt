@@ -1,0 +1,36 @@
+# Core (always needed)
+numpy
+Pillow
+torch
+
+# Video/audio decoding fallback chain: PyAV first, ffmpeg CLI as backup.
+# At least one of these has to work; try dropping a video on the loader first.
+av
+
+# Whisper transcription (faster-whisper = CTranslate2 build, ~6x realtime on GPU)
+faster-whisper
+
+# Optional: real speaker diarization. Falls back to a silence-gap heuristic
+# if this isn't installed or the gated HF model can't be pulled.
+# pyannote.audio
+# huggingface_hub
+
+# VLM backend A: local GGUF vision models via llama.cpp (recommended --
+# lowest VRAM, works with abliterated GGUF releases out of the box)
+llama-cpp-python
+
+# VLM backend B: load an HF-format checkpoint directly instead of GGUF.
+# Uncomment if you'd rather use transformers than llama.cpp.
+# transformers>=4.46
+# accelerate
+opencv-python
+
+# Comic mode: bubble OCR. Needs the tesseract binary too (apt install tesseract-ocr
+# / choco install tesseract). Falls back to the VLM when unavailable.
+pytesseract
+
+# Comic mode: WD SwinV2 tagger for panel content. Optional -- an installed
+# ComfyUI WD14 tagger node is used first if present, and panels fall back to
+# VLM-only description if neither is available.
+onnxruntime
+huggingface_hub

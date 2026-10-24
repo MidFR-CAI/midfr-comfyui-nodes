@@ -1,16 +1,17 @@
 import folder_paths
-import torch
-import numpy as np
-from PIL import Image
-import comfy.utils
 import os
+
+from .common import load_rgb_and_alpha, resize_pair, to_tensors
+
 
 class SimpleImageUploadResize:
     """
     A simple node that combines image upload and resize functionality.
     Drag and drop an image, it will resize to target megapixels with dimensions divisible by 32.
+    The MASK output comes from the image's alpha channel (a transparent PNG, or a mask painted
+    with ComfyUI's mask editor: right-click the node -> Open in MaskEditor). No alpha -> empty mask.
     """
-    
+
     @classmethod
     def INPUT_TYPES(cls):
         input_dir = folder_paths.get_input_directory()
@@ -18,7 +19,7 @@ class SimpleImageUploadResize:
         for f in os.listdir(input_dir):
             if os.path.isfile(os.path.join(input_dir, f)):
                 files.append(f)
-        
+
         return {
             "required": {
                 "image": (files, {"image_upload": True}),
@@ -26,61 +27,34 @@ class SimpleImageUploadResize:
             },
         }
 
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ("IMAGE", "MASK")
+    RETURN_NAMES = ("image", "mask")
     FUNCTION = "process_image"
     CATEGORY = "image"
 
     def process_image(self, image, max_megapixels):
-        # Load the image
-        image_path = os.path.join(folder_paths.get_input_directory(), image)
-        img = Image.open(image_path)
-        
-        # Convert to RGB if needed
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        
-        # Get original dimensions
-        width, height = img.size
-        
-        # Calculate target dimensions
-        target_pixels = max_megapixels * 1000000
-        
-        # Calculate current pixels
-        current_pixels = width * height
-        
-        # Only resize if image is larger than target
-        if current_pixels > target_pixels:
-            # Calculate scale factor to reach target pixels
-            scale = (target_pixels / current_pixels) ** 0.5
-            
-            # Calculate new dimensions
-            new_width = int(width * scale)
-            new_height = int(height * scale)
-            
-            # Adjust to be divisible by 32
-            new_width = ((new_width + 15) // 32) * 32
-            new_height = ((new_height + 15) // 32) * 32
-            
-            # Ensure minimum size
-            new_width = max(32, new_width)
-            new_height = max(32, new_height)
-            
-            # Resize with Lanczos
-            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-        
-        # Convert PIL image to tensor - Fixed version
-        img_array = np.array(img).astype(np.float32) / 255.0
-        img_tensor = torch.from_numpy(img_array)[None,]
-        
-        return (img_tensor,)
+        # get_annotated_filepath understands "name [input]" and sub-folders, which is how
+        # the mask editor refers to the painted copy it saves.
+        rgb, alpha = load_rgb_and_alpha(folder_paths.get_annotated_filepath(image))
+        # Only downsizes; sides divisible by 32 when it does.
+        rgb, alpha = resize_pair(rgb, alpha, max_megapixels, multiple=32, always_snap=False)
+        return to_tensors(rgb, alpha)
 
     @classmethod
     def IS_CHANGED(cls, image, max_megapixels):
-        # Return a hash of the image file to detect changes
-        image_path = os.path.join(folder_paths.get_input_directory(), image)
-        if os.path.exists(image_path):
-            return os.path.getmtime(image_path)
-        return float("NaN")
+        # Re-run when the file changes on disk
+        try:
+            return os.path.getmtime(folder_paths.get_annotated_filepath(image))
+        except Exception:
+            return float("NaN")
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, image):
+        # Lets the mask editor's saved copy ("clipspace/... [input]") through, like Load Image.
+        if not folder_paths.exists_annotated_filepath(image):
+            return "Invalid image file: {}".format(image)
+        return True
+
 
 # Register the node
 NODE_CLASS_MAPPINGS = {
@@ -98,6 +72,14 @@ from .multi_image_upload_resize import (
 )
 NODE_CLASS_MAPPINGS.update(_MULTI_CLASSES)
 NODE_DISPLAY_NAME_MAPPINGS.update(_MULTI_NAMES)
+
+# BBox layout node (MOSS-Image)
+from .bbox_layout import (
+    NODE_CLASS_MAPPINGS as _BBOX_CLASSES,
+    NODE_DISPLAY_NAME_MAPPINGS as _BBOX_NAMES,
+)
+NODE_CLASS_MAPPINGS.update(_BBOX_CLASSES)
+NODE_DISPLAY_NAME_MAPPINGS.update(_BBOX_NAMES)
 
 WEB_DIRECTORY = "./js"
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

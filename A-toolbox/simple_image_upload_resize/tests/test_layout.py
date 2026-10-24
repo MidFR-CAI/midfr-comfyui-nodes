@@ -23,45 +23,41 @@ common = _load("common")
 
 
 def boxes(*b):
-    return json.dumps([dict(x=x, y=y, w=w, h=h, label=l, caption=c, text=t) for x, y, w, h, l, c, t in b])
+    return json.dumps([dict(x=x, y=y, w=w, h=h, caption=c) for x, y, w, h, c in b])
 
 
 class LayoutTests(unittest.TestCase):
-    def test_no_boxes_is_none(self):
-        for data in ("[]", "", "not json", "{}", "null", boxes((0.1, 0.1, 0, 0.2, "object", "x", ""))):
-            self.assertIsNone(layout.build_layout(data, 1024, 1024), data)
+    def test_no_boxes_returns_plain_prompt(self):
+        for data in ("[]", "", "not json", "{}", "null", boxes((0.1, 0.1, 0, 0.2, "x"))):
+            self.assertEqual(layout.build_prompt(data, 1024, 1024, "a cat on a sofa"), "a cat on a sofa", data)
 
     def test_centred_yxyx_pixels(self):
         # box covering the left half of a 1024x512 canvas
-        out = json.loads(layout.build_layout(boxes((0, 0, 0.5, 1, "object", "a cat", "")), 1024, 512, "scene"))
+        out = json.loads(layout.build_prompt(boxes((0, 0, 0.5, 1, "a cat")), 1024, 512, "scene"))
         self.assertEqual(out["items"][0]["bbox"], [-256, -512, 256, 0])  # [ymin, xmin, ymax, xmax]
         self.assertEqual(out["bbox_coord_space"], "abs_centralized")
         self.assertEqual(out["bbox_format"], "yxyx")
-        self.assertEqual(out["summary"], {"canvas": "single", "caption": "scene"})
+        self.assertEqual(out["summary"], {"caption": "scene"})
 
-    def test_text_label_carries_text_and_key_order(self):
-        s = layout.build_layout(boxes((0.1, 0.1, 0.5, 0.2, "text", " Big title ", "EXPLORE")), 1024, 1024, meta="poster, travel")
+    def test_matches_core_node_shape(self):
+        s = layout.build_prompt(boxes((0.1, 0.2, 0.5, 0.25, " title ")), 1024, 1024, " scene ")
         out = json.loads(s)
         self.assertEqual(list(out), ["summary", "items", "bbox_coord_space", "bbox_format"])
-        self.assertEqual(list(out["items"][0]), ["label", "caption", "text", "bbox"])
-        self.assertEqual(out["items"][0]["caption"], "Big title")
-        self.assertEqual(out["summary"]["meta"], ["poster", "travel"])
-        self.assertNotIn(" ", s.replace("Big title", "").replace("EXPLORE", "")[:5])  # compact
+        self.assertEqual(out["items"][0], {"label": "object", "caption": "title", "bbox": [-308, -410, -51, 103]})
+        self.assertNotIn(" ", s.replace("title", "").replace("scene", ""))  # compact, like core
 
-    def test_text_only_on_text_label_and_bad_label_falls_back(self):
-        out = json.loads(layout.build_layout(boxes((0, 0, 1, 1, "object", "c", "ignored"), (0, 0, 1, 1, "weird", "c", "")), 64, 64))
-        self.assertNotIn("text", out["items"][0])
-        self.assertEqual(out["items"][1]["label"], "object")
+    def test_legacy_label_and_text_fields_are_ignored(self):
+        data = json.dumps([{"x": 0, "y": 0, "w": 1, "h": 1, "caption": "c", "label": "text", "text": "HELLO"}])
+        item = json.loads(layout.build_prompt(data, 64, 64))["items"][0]
+        self.assertEqual(list(item), ["label", "caption", "bbox"])
+        self.assertEqual(item["label"], "object")
 
     def test_clamp_and_swap(self):
-        out = json.loads(layout.build_layout(boxes((-0.2, 0.5, 1.5, -0.25, "object", "c", "")), 100, 100))
+        out = json.loads(layout.build_prompt(boxes((-0.2, 0.5, 1.5, -0.25, "c")), 100, 100))
         self.assertEqual(out["items"][0]["bbox"], [-25, -50, 0, 50])
 
-    def test_pretty_and_canvas_none(self):
-        s = layout.build_layout(boxes((0, 0, 1, 1, "object", "é", "")), 64, 64, canvas="none", pretty=True)
-        self.assertIn("\n", s)
-        self.assertIn("é", s)  # no \u escapes
-        self.assertNotIn("canvas", json.loads(s)["summary"])
+    def test_unicode_not_escaped(self):
+        self.assertIn("é", layout.build_prompt(boxes((0, 0, 1, 1, "é")), 64, 64))
 
 
 class ImageTests(unittest.TestCase):

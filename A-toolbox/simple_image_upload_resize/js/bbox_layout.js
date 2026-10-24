@@ -5,10 +5,9 @@ import { api } from "../../scripts/api.js";
 // Boxes are stored normalised (0..1, top-left origin) in the hidden `bbox_data` widget, so they
 // stay correct whatever size the image is resized to; the backend turns them into MOSS pixels.
 
-const LABELS = ["object", "character", "text"];
 const COLORS = ["#ff5252", "#40c4ff", "#ffd740", "#69f0ae", "#e040fb", "#ff9100", "#18ffff", "#b2ff59"];
 const MIN = 0.01;          // smallest box edge (fraction of the image)
-const PANEL_H = 196;       // chips + controls + caption box
+const PANEL_H = 150;       // chips + caption box
 const MAX_STAGE_H = 640;
 const EMPTY_H = 200;
 
@@ -67,8 +66,6 @@ function addStyle() {
     .bbl-chip{padding:1px 8px;border-radius:10px;border:2px solid var(--c);background:#2a2a2a;color:#eee;cursor:pointer;font-size:11px}
     .bbl-chip.sel{background:var(--c);color:#000;font-weight:bold}
     .bbl-row{display:flex;gap:6px;align-items:center}
-    .bbl-in,.bbl-sel{background:#222;color:#eee;border:1px solid #666;border-radius:4px;padding:3px 6px;font-size:12px;box-sizing:border-box}
-    .bbl-in{flex:1;min-width:0}
     .bbl-ta{width:100%;min-height:64px;resize:vertical;background:#222;color:#eee;border:1px solid #666;border-radius:4px;padding:4px 6px;
       font-size:12px;font-family:inherit;box-sizing:border-box}
     .bbl-hint{opacity:.55}
@@ -87,7 +84,7 @@ app.registerExtension({
     for (const w of [imageW, dataW]) { w.hidden = true; w.computeSize = () => [0, -4]; }
     addStyle();
 
-    let boxes = [];       // {x,y,w,h,label,caption,text}
+    let boxes = [];       // {x,y,w,h,caption}
     let sel = -1;
     let aspect = 0;       // image width / height once loaded
     let els = [];         // box elements, parallel to boxes
@@ -111,11 +108,8 @@ app.registerExtension({
     const panel = document.createElement("div"); panel.className = "bbl-panel";
     const chips = document.createElement("div"); chips.className = "bbl-chips";
     const ctrl = document.createElement("div"); ctrl.className = "bbl-row";
-    const labelSel = document.createElement("select"); labelSel.className = "bbl-sel";
-    for (const l of LABELS) labelSel.add(new Option(l, l));
-    const textIn = document.createElement("input"); textIn.className = "bbl-in"; textIn.placeholder = "Exact text to render";
     const delBtn = document.createElement("button"); delBtn.className = "bbl-btn"; delBtn.textContent = "Delete box";
-    ctrl.append(labelSel, textIn, delBtn);
+    ctrl.append(delBtn);
     const capIn = document.createElement("textarea"); capIn.className = "bbl-ta";
     capIn.placeholder = "Prompt for this box: what should appear here?";
     const hint = document.createElement("div"); hint.className = "bbl-hint";
@@ -126,13 +120,13 @@ app.registerExtension({
     root.append(bar, stage, panel, fileIn);
 
     // Keep canvas shortcuts (Delete, Ctrl+..., etc.) from firing while typing here.
-    for (const el of [textIn, capIn, labelSel]) el.addEventListener("keydown", (e) => e.stopPropagation());
+    for (const el of [capIn]) el.addEventListener("keydown", (e) => e.stopPropagation());
 
     // ---------- state ----------
     function save() {
       dataW.value = JSON.stringify(boxes.map((b) => ({
         x: round4(b.x), y: round4(b.y), w: round4(b.w), h: round4(b.h),
-        label: b.label, caption: b.caption, text: b.text,
+        caption: b.caption,
       })));
       node.setDirtyCanvas(true, true);
       app.graph?.change?.();
@@ -149,9 +143,7 @@ app.registerExtension({
           if (!(w > 0) || !(h > 0)) continue;
           boxes.push({
             x, y, w, h,
-            label: LABELS.includes(r.label) ? r.label : "object",
             caption: typeof r.caption === "string" ? r.caption : "",
-            text: typeof r.text === "string" ? r.text : "",
           });
         }
       }
@@ -168,7 +160,7 @@ app.registerExtension({
 
     function tagText(i) {
       const b = boxes[i];
-      return `#${i + 1} ${b.label}` + (b.caption ? `: ${b.caption}` : "");
+      return `#${i + 1}` + (b.caption ? `: ${b.caption}` : "");
     }
 
     function renderBoxes() {
@@ -201,7 +193,7 @@ app.registerExtension({
         const c = document.createElement("button");
         c.className = "bbl-chip" + (i === sel ? " sel" : "");
         c.style.setProperty("--c", color(i));
-        c.textContent = `#${i + 1} ${b.label}`;
+        c.textContent = `#${i + 1}`;
         c.addEventListener("click", () => { sel = i; updateSelection(); });
         chips.append(c);
       });
@@ -209,13 +201,10 @@ app.registerExtension({
       ctrl.style.display = capIn.style.display = has ? "" : "none";
       hint.style.display = has ? "none" : "";
       hint.textContent = boxes.length
-        ? "Select a box to edit its prompt. No boxes = no bbox_json output."
-        : "Drag on the image to add a box. No boxes = no bbox_json output.";
+        ? "Select a box to edit its prompt. Without boxes, the prompt is passed through as plain text."
+        : "Drag on the image to add a box. Without boxes, the prompt is passed through as plain text.";
       if (has) {
         const b = boxes[sel];
-        labelSel.value = b.label;
-        textIn.style.display = b.label === "text" ? "" : "none";
-        textIn.value = b.text;
         capIn.value = b.caption;
       }
     }
@@ -349,7 +338,7 @@ app.registerExtension({
         d.el.remove();
         const c = d.cur;
         if (c.w >= MIN && c.h >= MIN) {
-          boxes.push({ x: c.x, y: c.y, w: c.w, h: c.h, label: "object", caption: "", text: "" });
+          boxes.push({ x: c.x, y: c.y, w: c.w, h: c.h, caption: "" });
           sel = boxes.length - 1;
           renderBoxes();
           save();
@@ -378,14 +367,6 @@ app.registerExtension({
     delBtn.addEventListener("click", deleteSelected);
     clearBtn.addEventListener("click", () => { boxes = []; sel = -1; renderBoxes(); save(); });
 
-    labelSel.addEventListener("change", () => {
-      if (sel < 0) return;
-      boxes[sel].label = labelSel.value;
-      textIn.style.display = labelSel.value === "text" ? "" : "none";
-      els[sel]?.querySelector(".bbl-tag") && (els[sel].querySelector(".bbl-tag").textContent = tagText(sel));
-      renderPanel(); save();
-    });
-    textIn.addEventListener("input", () => { if (sel >= 0) { boxes[sel].text = textIn.value; save(); } });
     capIn.addEventListener("input", () => {
       if (sel < 0) return;
       boxes[sel].caption = capIn.value;

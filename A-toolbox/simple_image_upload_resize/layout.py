@@ -1,9 +1,9 @@
 """MOSS-Image layout prompt builder (no ComfyUI dependencies).
 
-MOSS-Image takes a JSON prompt:
+Builds the same JSON as ComfyUI's built-in "MOSS-Image Layout Prompt" node:
 
-    {"summary": {"meta": [...], "canvas": "single", "caption": "<whole scene>"},
-     "items": [{"label": "object|character|text", "caption": "...", "text": "...", "bbox": [ymin, xmin, ymax, xmax]}],
+    {"summary": {"caption": "<whole scene>"},
+     "items": [{"label": "object", "caption": "<box prompt>", "bbox": [ymin, xmin, ymax, xmax]}],
      "bbox_coord_space": "abs_centralized",
      "bbox_format": "yxyx"}
 
@@ -13,13 +13,10 @@ so on a 1024x1024 canvas coordinates run -512..512. Source: OpenMOSS/MOSS-Image 
 import json
 import math
 
-LABELS = ("object", "character", "text")
-CANVASES = ("single", "multi_panel", "collage", "none")
-
 
 def parse_boxes(data):
     """The editor's `bbox_data` (JSON list, coordinates normalised 0..1, top-left origin)
-    -> clean list of {x0,y0,x1,y1,label,caption,text}. Invalid entries are dropped."""
+    -> clean list of {x0,y0,x1,y1,caption}. Invalid entries are dropped."""
     try:
         raw = json.loads(data) if isinstance(data, (str, bytes)) else data
     except (TypeError, ValueError):
@@ -41,49 +38,33 @@ def parse_boxes(data):
         y0, y1 = sorted((min(max(y0, 0.0), 1.0), min(max(y1, 0.0), 1.0)))
         if x1 <= x0 or y1 <= y0:
             continue
-        label = b.get("label") if b.get("label") in LABELS else "object"
-        text = b.get("text")
-        out.append({
-            "x0": x0, "y0": y0, "x1": x1, "y1": y1, "label": label,
-            "caption": str(b.get("caption") or "").strip(),
-            "text": text if isinstance(text, str) and text.strip() else "",
-        })
+        out.append({"x0": x0, "y0": y0, "x1": x1, "y1": y1,
+                    "caption": str(b.get("caption") or "").strip()})
     return out
 
 
-def _px(v):
-    return int(math.floor(v + 0.5))
+def _floor(v):
+    return math.floor(round(v, 9))
 
 
-def build_layout(bbox_data, width, height, scene_prompt="", meta="", canvas="single", pretty=False):
-    """-> MOSS-Image layout JSON string, or None when there are no usable boxes."""
-    boxes = bbox_data if isinstance(bbox_data, list) and all("x0" in b for b in bbox_data) else parse_boxes(bbox_data)
+def _ceil(v):
+    return math.ceil(round(v, 9))
+
+
+def build_prompt(bbox_data, width, height, prompt=""):
+    """-> MOSS-Image layout JSON when there are boxes, otherwise the plain prompt."""
     items = []
-    for b in boxes:
-        ymin = _px(b["y0"] * height - height / 2)
-        xmin = _px(b["x0"] * width - width / 2)
-        ymax = _px(b["y1"] * height - height / 2)
-        xmax = _px(b["x1"] * width - width / 2)
+    for b in parse_boxes(bbox_data):
+        # Pixel edges enclosing the box, origin at the canvas centre (same maths as the core node).
+        ymin = _floor(b["y0"] * height) - height // 2
+        xmin = _floor(b["x0"] * width) - width // 2
+        ymax = _ceil(b["y1"] * height) - height // 2
+        xmax = _ceil(b["x1"] * width) - width // 2
         if ymax <= ymin or xmax <= xmin:
             continue
-        item = {"label": b["label"], "caption": b["caption"]}
-        if b["label"] == "text" and b["text"]:
-            item["text"] = b["text"]
-        item["bbox"] = [ymin, xmin, ymax, xmax]
-        items.append(item)
+        items.append({"label": "object", "caption": b["caption"], "bbox": [ymin, xmin, ymax, xmax]})
     if not items:
-        return None
-
-    summary = {}
-    tags = [t.strip() for t in (meta or "").split(",") if t.strip()]
-    if tags:
-        summary["meta"] = tags
-    if canvas and canvas != "none":
-        summary["canvas"] = canvas
-    summary["caption"] = (scene_prompt or "").strip()
-
-    doc = {"summary": summary, "items": items,
+        return prompt
+    doc = {"summary": {"caption": prompt.strip()}, "items": items,
            "bbox_coord_space": "abs_centralized", "bbox_format": "yxyx"}
-    if pretty:
-        return json.dumps(doc, indent=2, ensure_ascii=False)
-    return json.dumps(doc, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(doc, ensure_ascii=False, separators=(",", ":"))

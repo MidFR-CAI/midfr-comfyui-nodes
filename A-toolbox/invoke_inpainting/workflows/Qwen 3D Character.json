@@ -1,0 +1,2494 @@
+{
+ "id": "qwen3dcharacter-0001",
+ "revision": 0,
+ "last_node_id": 61,
+ "last_link_id": 45,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    300,
+    400
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "COMBO",
+     "widget": {
+      "name": "image"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "choose file to upload",
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "widget": {
+      "name": "upload"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "IMAGE",
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      1,
+      2,
+      5,
+      8,
+      23
+     ]
+    },
+    {
+     "localized_name": "MASK",
+     "name": "MASK",
+     "type": "MASK",
+     "links": []
+    }
+   ],
+   "title": "1 · Source image (the character)",
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "train_src.png",
+    "image"
+   ],
+   "widgets_values_named": {
+    "image": "knight1.png",
+    "upload": "image"
+   }
+  },
+  {
+   "id": 2,
+   "type": "GetImageSize",
+   "pos": [
+    380,
+    40
+   ],
+   "size": [
+    260,
+    80
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 1
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "width",
+     "name": "width",
+     "type": "INT",
+     "links": [
+      13
+     ]
+    },
+    {
+     "localized_name": "height",
+     "name": "height",
+     "type": "INT",
+     "links": [
+      14
+     ]
+    },
+    {
+     "localized_name": "batch_size",
+     "name": "batch_size",
+     "type": "INT",
+     "links": []
+    }
+   ],
+   "title": "Image size",
+   "properties": {
+    "Node name for S&R": "GetImageSize"
+   }
+  },
+  {
+   "id": 7,
+   "type": "Sapiens2Loader",
+   "pos": [
+    380,
+    160
+   ],
+   "size": [
+    300,
+    70
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "checkpoint",
+     "name": "checkpoint",
+     "type": "COMBO",
+     "widget": {
+      "name": "checkpoint"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "sapiens2_model",
+     "name": "sapiens2_model",
+     "type": "SAPIENS2_MODEL",
+     "links": [
+      3
+     ]
+    }
+   ],
+   "title": "Sapiens2 seg model",
+   "properties": {
+    "Node name for S&R": "Sapiens2Loader"
+   },
+   "widgets_values": [
+    "sapiens2_1b_seg.safetensors"
+   ],
+   "widgets_values_named": {
+    "checkpoint": "sapiens2_1b_seg.safetensors"
+   }
+  },
+  {
+   "id": 8,
+   "type": "Sapiens2Seg",
+   "pos": [
+    380,
+    260
+   ],
+   "size": [
+    300,
+    100
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 2
+    },
+    {
+     "localized_name": "sapiens2_model",
+     "name": "sapiens2_model",
+     "type": "SAPIENS2_MODEL",
+     "link": 3
+    },
+    {
+     "localized_name": "frames_per_batch",
+     "name": "frames_per_batch",
+     "type": "INT",
+     "widget": {
+      "name": "frames_per_batch"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "class_id_mask",
+     "name": "class_id_mask",
+     "type": "MASK",
+     "links": [
+      4
+     ]
+    },
+    {
+     "localized_name": "colored",
+     "name": "colored",
+     "type": "IMAGE",
+     "links": []
+    }
+   ],
+   "title": "Body-part segmentation",
+   "properties": {
+    "Node name for S&R": "Sapiens2Seg"
+   },
+   "widgets_values": [
+    1
+   ],
+   "widgets_values_named": {
+    "frames_per_batch": 1
+   }
+  },
+  {
+   "id": 9,
+   "type": "SapiensRegions",
+   "pos": [
+    700,
+    160
+   ],
+   "size": [
+    330,
+    190
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "class_id_mask",
+     "name": "class_id_mask",
+     "type": "MASK",
+     "link": 4
+    },
+    {
+     "localized_name": "num_classes",
+     "name": "num_classes",
+     "type": "INT",
+     "widget": {
+      "name": "num_classes"
+     },
+     "link": null
+    },
+    {
+     "name": "drop_classes",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "drop_classes"
+     }
+    },
+    {
+     "name": "tight_classes",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "tight_classes"
+     }
+    },
+    {
+     "name": "covered_classes",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "covered_classes"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "person",
+     "name": "person",
+     "type": "MASK",
+     "links": [
+      12
+     ]
+    },
+    {
+     "localized_name": "trusted",
+     "name": "trusted",
+     "type": "MASK",
+     "links": []
+    },
+    {
+     "localized_name": "clothing",
+     "name": "clothing",
+     "type": "MASK",
+     "links": []
+    },
+    {
+     "localized_name": "remove",
+     "name": "remove",
+     "type": "MASK",
+     "links": []
+    },
+    {
+     "localized_name": "face",
+     "name": "face",
+     "type": "MASK",
+     "links": []
+    },
+    {
+     "localized_name": "preview",
+     "name": "preview",
+     "type": "IMAGE",
+     "links": []
+    },
+    {
+     "localized_name": "fit_mask",
+     "name": "fit_mask",
+     "type": "MASK",
+     "links": [
+      15
+     ],
+     "slot_index": 6
+    }
+   ],
+   "title": "Regions: person / skin / clothing / dropped parts",
+   "properties": {
+    "Node name for S&R": "SapiensRegions"
+   },
+   "widgets_values": [
+    29,
+    "Hair,Eyeglass",
+    "Upper_Clothing",
+    ""
+   ],
+   "widgets_values_named": {
+    "num_classes": 29,
+    "drop_classes": "Hair,Eyeglass",
+    "covered_classes": "",
+    "tight_classes": ""
+   }
+  },
+  {
+   "id": 12,
+   "type": "Sapiens2Loader",
+   "pos": [
+    380,
+    520
+   ],
+   "size": [
+    300,
+    70
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "checkpoint",
+     "name": "checkpoint",
+     "type": "COMBO",
+     "widget": {
+      "name": "checkpoint"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "sapiens2_model",
+     "name": "sapiens2_model",
+     "type": "SAPIENS2_MODEL",
+     "links": [
+      6
+     ]
+    }
+   ],
+   "title": "Sapiens2 pointmap model",
+   "properties": {
+    "Node name for S&R": "Sapiens2Loader"
+   },
+   "widgets_values": [
+    "sapiens2_1b_pointmap.safetensors"
+   ],
+   "widgets_values_named": {
+    "checkpoint": "sapiens2_1b_pointmap.safetensors"
+   }
+  },
+  {
+   "id": 13,
+   "type": "Sapiens2Depth",
+   "pos": [
+    700,
+    520
+   ],
+   "size": [
+    300,
+    100
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 5
+    },
+    {
+     "localized_name": "sapiens2_model",
+     "name": "sapiens2_model",
+     "type": "SAPIENS2_MODEL",
+     "link": 6
+    },
+    {
+     "localized_name": "frames_per_batch",
+     "name": "frames_per_batch",
+     "type": "INT",
+     "widget": {
+      "name": "frames_per_batch"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "depth_m",
+     "name": "depth_m",
+     "type": "MASK",
+     "links": [
+      11
+     ]
+    },
+    {
+     "localized_name": "preview",
+     "name": "preview",
+     "type": "IMAGE",
+     "links": []
+    }
+   ],
+   "title": "Clothed-surface depth (metres)",
+   "properties": {
+    "Node name for S&R": "Sapiens2Depth"
+   },
+   "widgets_values": [
+    1
+   ],
+   "widgets_values_named": {
+    "frames_per_batch": 1
+   }
+  },
+  {
+   "id": 16,
+   "type": "SAM3DBody_Loader",
+   "pos": [
+    40,
+    520
+   ],
+   "size": [
+    300,
+    70
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "model_file",
+     "name": "model_file",
+     "type": "COMBO",
+     "widget": {
+      "name": "model_file"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "sam3d_body_model",
+     "name": "sam3d_body_model",
+     "type": "SAM3D_BODY_MODEL",
+     "links": [
+      7,
+      9,
+      16,
+      18
+     ]
+    }
+   ],
+   "title": "SAM 3D Body model",
+   "properties": {
+    "Node name for S&R": "SAM3DBody_Loader"
+   },
+   "widgets_values": [
+    "sam_3d_body_dinov3_int8_convrot.safetensors"
+   ],
+   "widgets_values_named": {
+    "model_file": "sam_3d_body_dinov3_int8_convrot.safetensors"
+   }
+  },
+  {
+   "id": 17,
+   "type": "SAM3DBody_Predict",
+   "pos": [
+    380,
+    700
+   ],
+   "size": [
+    300,
+    200
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "sam3d_body_model",
+     "name": "sam3d_body_model",
+     "type": "SAM3D_BODY_MODEL",
+     "link": 7
+    },
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 8
+    },
+    {
+     "localized_name": "track_data",
+     "name": "track_data",
+     "shape": 7,
+     "type": "SAM3_TRACK_DATA",
+     "link": null
+    },
+    {
+     "localized_name": "bboxes",
+     "name": "bboxes",
+     "shape": 7,
+     "type": "BOUNDING_BOX",
+     "link": null
+    },
+    {
+     "localized_name": "run_hand_refinement",
+     "name": "run_hand_refinement",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "run_hand_refinement"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fov",
+     "name": "fov",
+     "type": "FLOAT",
+     "widget": {
+      "name": "fov"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "batch_size",
+     "name": "batch_size",
+     "type": "INT",
+     "widget": {
+      "name": "batch_size"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "mhr_pose_data",
+     "name": "mhr_pose_data",
+     "type": "MHR_POSE_DATA",
+     "links": [
+      10
+     ]
+    }
+   ],
+   "title": "Pose + base body mesh",
+   "properties": {
+    "Node name for S&R": "SAM3DBody_Predict"
+   },
+   "widgets_values": [
+    true,
+    0,
+    64
+   ],
+   "widgets_values_named": {
+    "run_hand_refinement": true,
+    "fov": 0,
+    "batch_size": 64
+   }
+  },
+  {
+   "id": 18,
+   "type": "MHRSliderFit",
+   "pos": [
+    700,
+    760
+   ],
+   "size": [
+    380,
+    430
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "sam3d_body_model",
+     "name": "sam3d_body_model",
+     "type": "SAM3D_BODY_MODEL",
+     "link": 9
+    },
+    {
+     "localized_name": "mhr_pose_data",
+     "name": "mhr_pose_data",
+     "type": "MHR_POSE_DATA",
+     "link": 10
+    },
+    {
+     "localized_name": "shell_depth",
+     "name": "shell_depth",
+     "type": "MASK",
+     "link": 11
+    },
+    {
+     "localized_name": "person",
+     "name": "person",
+     "type": "MASK",
+     "link": 12
+    },
+    {
+     "localized_name": "trusted",
+     "name": "trusted",
+     "shape": 7,
+     "type": "MASK",
+     "link": 15
+    },
+    {
+     "localized_name": "image_width",
+     "name": "image_width",
+     "type": "INT",
+     "widget": {
+      "name": "image_width"
+     },
+     "link": 13
+    },
+    {
+     "localized_name": "image_height",
+     "name": "image_height",
+     "type": "INT",
+     "widget": {
+      "name": "image_height"
+     },
+     "link": 14
+    },
+    {
+     "localized_name": "trunk_min",
+     "name": "trunk_min",
+     "type": "FLOAT",
+     "widget": {
+      "name": "trunk_min"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "trunk_max",
+     "name": "trunk_max",
+     "type": "FLOAT",
+     "widget": {
+      "name": "trunk_max"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "limb_min",
+     "name": "limb_min",
+     "type": "FLOAT",
+     "widget": {
+      "name": "limb_min"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "limb_max",
+     "name": "limb_max",
+     "type": "FLOAT",
+     "widget": {
+      "name": "limb_max"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "max_step",
+     "name": "max_step",
+     "type": "FLOAT",
+     "widget": {
+      "name": "max_step"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "thickness",
+     "name": "thickness",
+     "type": "FLOAT",
+     "widget": {
+      "name": "thickness"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "silhouette_pull",
+     "name": "silhouette_pull",
+     "type": "FLOAT",
+     "widget": {
+      "name": "silhouette_pull"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "iterations",
+     "name": "iterations",
+     "type": "INT",
+     "widget": {
+      "name": "iterations"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "mhr_pose_data",
+     "name": "mhr_pose_data",
+     "type": "MHR_POSE_DATA",
+     "links": [
+      19,
+      22
+     ]
+    },
+    {
+     "localized_name": "sliders",
+     "name": "sliders",
+     "type": "STRING",
+     "links": []
+    }
+   ],
+   "title": "Body sliders fit (bounded)",
+   "properties": {
+    "Node name for S&R": "MHRSliderFit"
+   },
+   "widgets_values": [
+    832,
+    1248,
+    0.9,
+    1.5,
+    0.9,
+    1.4,
+    0.25,
+    0.05,
+    1,
+    300
+   ],
+   "widgets_values_named": {
+    "image_width": 832,
+    "image_height": 1248,
+    "trunk_min": 0.9,
+    "trunk_max": 1.5,
+    "limb_min": 0.9,
+    "limb_max": 1.4,
+    "max_step": 0.25,
+    "thickness": 0.05,
+    "silhouette_pull": 1,
+    "iterations": 300
+   }
+  },
+  {
+   "id": 27,
+   "type": "UNETLoader",
+   "pos": [
+    1900,
+    1950
+   ],
+   "size": [
+    300,
+    100
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "unet_name",
+     "name": "unet_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "unet_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "weight_dtype",
+     "name": "weight_dtype",
+     "type": "COMBO",
+     "widget": {
+      "name": "weight_dtype"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL",
+     "name": "MODEL",
+     "type": "MODEL",
+     "links": [
+      35
+     ]
+    }
+   ],
+   "title": "Qwen Image 2.1 model",
+   "properties": {
+    "Node name for S&R": "UNETLoader"
+   },
+   "widgets_values": [
+    "qwen_image_2.1_turbo_int8_convrot.safetensors",
+    "default"
+   ],
+   "widgets_values_named": {
+    "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+    "weight_dtype": "default"
+   }
+  },
+  {
+   "id": 28,
+   "type": "CLIPLoader",
+   "pos": [
+    1900,
+    2100
+   ],
+   "size": [
+    300,
+    110
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "clip_name",
+     "name": "clip_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "clip_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "type",
+     "name": "type",
+     "type": "COMBO",
+     "widget": {
+      "name": "type"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "device",
+     "name": "device",
+     "shape": 7,
+     "type": "COMBO",
+     "widget": {
+      "name": "device"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "CLIP",
+     "name": "CLIP",
+     "type": "CLIP",
+     "links": [
+      29
+     ]
+    }
+   ],
+   "title": "Text encoder",
+   "properties": {
+    "Node name for S&R": "CLIPLoader"
+   },
+   "widgets_values": [
+    "qwen3vl_8b_w4a8.safetensors",
+    "qwen_image",
+    "default"
+   ],
+   "widgets_values_named": {
+    "clip_name": "qwen3vl_8b_w4a8.safetensors",
+    "type": "qwen_image",
+    "device": "default"
+   }
+  },
+  {
+   "id": 29,
+   "type": "VAELoader",
+   "pos": [
+    1900,
+    2250
+   ],
+   "size": [
+    300,
+    70
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "vae_name",
+     "name": "vae_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "vae_name"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "VAE",
+     "name": "VAE",
+     "type": "VAE",
+     "links": [
+      33,
+      37,
+      44
+     ]
+    }
+   ],
+   "title": "VAE",
+   "properties": {
+    "Node name for S&R": "VAELoader"
+   },
+   "widgets_values": [
+    "qwen_image_2.1_vae_bf16.safetensors"
+   ],
+   "widgets_values_named": {
+    "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+   }
+  },
+  {
+   "id": 30,
+   "type": "ModelPatchLoader",
+   "pos": [
+    1900,
+    2370
+   ],
+   "size": [
+    300,
+    70
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "name",
+     "name": "name",
+     "type": "COMBO",
+     "widget": {
+      "name": "name"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL_PATCH",
+     "name": "MODEL_PATCH",
+     "type": "MODEL_PATCH",
+     "links": [
+      36
+     ]
+    }
+   ],
+   "title": "Union control patch",
+   "properties": {
+    "Node name for S&R": "ModelPatchLoader"
+   },
+   "widgets_values": [
+    "Qwen-Image-2.1-Fun-Controlnet-Union-ComfyUI.safetensors"
+   ],
+   "widgets_values_named": {
+    "name": "Qwen-Image-2.1-Fun-Controlnet-Union-ComfyUI.safetensors"
+   }
+  },
+  {
+   "id": 31,
+   "type": "TextEncodeQwenImage21",
+   "pos": [
+    2250,
+    1950
+   ],
+   "size": [
+    540,
+    250
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "clip",
+     "type": "CLIP",
+     "link": 29
+    },
+    {
+     "name": "images.image_1",
+     "type": "IMAGE",
+     "link": 30,
+     "shape": 7
+    },
+    {
+     "name": "images.image_2",
+     "type": "IMAGE",
+     "link": 31,
+     "shape": 7
+    },
+    {
+     "name": "images.image_3",
+     "type": "IMAGE",
+     "link": 32,
+     "shape": 7
+    },
+    {
+     "name": "vae",
+     "type": "VAE",
+     "link": 33,
+     "shape": 7
+    },
+    {
+     "name": "prompt",
+     "type": "STRING",
+     "link": 34,
+     "widget": {
+      "name": "prompt"
+     }
+    },
+    {
+     "name": "negative_prompt",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "negative_prompt"
+     }
+    },
+    {
+     "name": "resolution",
+     "type": "INT",
+     "link": null,
+     "widget": {
+      "name": "resolution"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "positive",
+     "name": "positive",
+     "type": "CONDITIONING",
+     "links": [
+      40
+     ]
+    },
+    {
+     "localized_name": "negative",
+     "name": "negative",
+     "type": "CONDITIONING",
+     "links": [
+      41
+     ]
+    },
+    {
+     "localized_name": "latent",
+     "name": "latent",
+     "type": "LATENT",
+     "links": [
+      42
+     ]
+    }
+   ],
+   "title": "Encode (render + optional references)",
+   "properties": {
+    "Node name for S&R": "TextEncodeQwenImage21"
+   },
+   "widgets_values": [
+    "",
+    "deformed, extra limbs, blurry, low quality",
+    1024
+   ],
+   "widgets_values_named": {
+    "prompt": "",
+    "negative_prompt": "",
+    "resolution": 1024
+   }
+  },
+  {
+   "id": 32,
+   "type": "QwenImageDiffsynthControlnet",
+   "pos": [
+    2250,
+    2350
+   ],
+   "size": [
+    320,
+    190
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "model",
+     "type": "MODEL",
+     "link": 35
+    },
+    {
+     "name": "model_patch",
+     "type": "MODEL_PATCH",
+     "link": 36
+    },
+    {
+     "name": "vae",
+     "type": "VAE",
+     "link": 37
+    },
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "link": 38
+    },
+    {
+     "name": "mask",
+     "type": "MASK",
+     "link": null,
+     "shape": 7
+    },
+    {
+     "name": "strength",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "strength"
+     }
+    },
+    {
+     "name": "start_percent",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "start_percent"
+     }
+    },
+    {
+     "name": "end_percent",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "end_percent"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL",
+     "name": "MODEL",
+     "type": "MODEL",
+     "links": [
+      39
+     ]
+    }
+   ],
+   "title": "Depth control (from the camera render)",
+   "properties": {
+    "Node name for S&R": "QwenImageDiffsynthControlnet"
+   },
+   "widgets_values": [
+    0.8,
+    0.0,
+    0.8
+   ],
+   "widgets_values_named": {
+    "strength": 1,
+    "start_percent": 0,
+    "end_percent": 1
+   }
+  },
+  {
+   "id": 34,
+   "type": "KSampler",
+   "pos": [
+    2650,
+    1950
+   ],
+   "size": [
+    320,
+    260
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "link": 39
+    },
+    {
+     "localized_name": "positive",
+     "name": "positive",
+     "type": "CONDITIONING",
+     "link": 40
+    },
+    {
+     "localized_name": "negative",
+     "name": "negative",
+     "type": "CONDITIONING",
+     "link": 41
+    },
+    {
+     "localized_name": "latent_image",
+     "name": "latent_image",
+     "type": "LATENT",
+     "link": 42
+    },
+    {
+     "localized_name": "seed",
+     "name": "seed",
+     "type": "INT",
+     "widget": {
+      "name": "seed"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "steps",
+     "name": "steps",
+     "type": "INT",
+     "widget": {
+      "name": "steps"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "cfg",
+     "name": "cfg",
+     "type": "FLOAT",
+     "widget": {
+      "name": "cfg"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "sampler_name",
+     "name": "sampler_name",
+     "type": "COMBO",
+     "widget": {
+      "name": "sampler_name"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "scheduler",
+     "name": "scheduler",
+     "type": "COMBO",
+     "widget": {
+      "name": "scheduler"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "denoise",
+     "name": "denoise",
+     "type": "FLOAT",
+     "widget": {
+      "name": "denoise"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "LATENT",
+     "name": "LATENT",
+     "type": "LATENT",
+     "links": [
+      43
+     ]
+    }
+   ],
+   "title": "Sample",
+   "properties": {
+    "Node name for S&R": "KSampler"
+   },
+   "widgets_values": [
+    7,
+    "randomize",
+    8,
+    1,
+    "euler",
+    "simple",
+    1
+   ],
+   "widgets_values_named": {
+    "seed": 7,
+    "control_after_generate": "randomize",
+    "steps": 8,
+    "cfg": 1,
+    "sampler_name": "euler",
+    "scheduler": "simple",
+    "denoise": 1
+   }
+  },
+  {
+   "id": 35,
+   "type": "VAEDecode",
+   "pos": [
+    3050,
+    1950
+   ],
+   "size": [
+    200,
+    70
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "samples",
+     "name": "samples",
+     "type": "LATENT",
+     "link": 43
+    },
+    {
+     "localized_name": "vae",
+     "name": "vae",
+     "type": "VAE",
+     "link": 44
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "IMAGE",
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      45
+     ]
+    }
+   ],
+   "title": "Decode",
+   "properties": {
+    "Node name for S&R": "VAEDecode"
+   }
+  },
+  {
+   "id": 36,
+   "type": "SaveImage",
+   "pos": [
+    3050,
+    2100
+   ],
+   "size": [
+    430,
+    430
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "link": 45
+    },
+    {
+     "localized_name": "filename_prefix",
+     "name": "filename_prefix",
+     "type": "STRING",
+     "widget": {
+      "name": "filename_prefix"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "links": []
+    }
+   ],
+   "title": "3 · Result",
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "qwen_3d_character/edit"
+   ],
+   "widgets_values_named": {
+    "filename_prefix": "qwen_mannequin_edit/edit"
+   }
+  },
+  {
+   "id": 50,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    1180
+   ],
+   "size": [
+    300,
+    420
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 4,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "image"
+     }
+    },
+    {
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "link": null,
+     "widget": {
+      "name": "upload"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      17
+     ]
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": []
+    }
+   ],
+   "title": "Pose reference (bypassed = keep her own pose; un-bypass 50+51 to copy a pose)",
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "train_src.png",
+    "image"
+   ]
+  },
+  {
+   "id": 51,
+   "type": "SAM3DBody_Predict",
+   "pos": [
+    400,
+    1180
+   ],
+   "size": [
+    300,
+    200
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 4,
+   "inputs": [
+    {
+     "localized_name": "sam3d_body_model",
+     "name": "sam3d_body_model",
+     "type": "SAM3D_BODY_MODEL",
+     "link": 16
+    },
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 17
+    },
+    {
+     "localized_name": "track_data",
+     "name": "track_data",
+     "shape": 7,
+     "type": "SAM3_TRACK_DATA",
+     "link": null
+    },
+    {
+     "localized_name": "bboxes",
+     "name": "bboxes",
+     "shape": 7,
+     "type": "BOUNDING_BOX",
+     "link": null
+    },
+    {
+     "localized_name": "run_hand_refinement",
+     "name": "run_hand_refinement",
+     "type": "BOOLEAN",
+     "widget": {
+      "name": "run_hand_refinement"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "fov",
+     "name": "fov",
+     "type": "FLOAT",
+     "widget": {
+      "name": "fov"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "batch_size",
+     "name": "batch_size",
+     "type": "INT",
+     "widget": {
+      "name": "batch_size"
+     },
+     "link": null
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "mhr_pose_data",
+     "name": "mhr_pose_data",
+     "type": "MHR_POSE_DATA",
+     "links": [
+      20
+     ]
+    }
+   ],
+   "title": "Pose of the reference image",
+   "properties": {
+    "Node name for S&R": "SAM3DBody_Predict"
+   },
+   "widgets_values": [
+    true,
+    0,
+    64
+   ],
+   "widgets_values_named": {
+    "run_hand_refinement": true,
+    "fov": 0,
+    "batch_size": 64
+   }
+  },
+  {
+   "id": 52,
+   "type": "MHRPoseTransfer",
+   "pos": [
+    740,
+    1180
+   ],
+   "size": [
+    330,
+    160
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "sam3d_body_model",
+     "type": "SAM3D_BODY_MODEL",
+     "link": 18
+    },
+    {
+     "name": "character",
+     "type": "MHR_POSE_DATA",
+     "link": 19
+    },
+    {
+     "name": "copy_hands",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "copy_hands"
+     }
+    },
+    {
+     "name": "copy_global_rotation",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "copy_global_rotation"
+     }
+    },
+    {
+     "name": "apply_sliders",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "apply_sliders"
+     }
+    },
+    {
+     "name": "reference",
+     "type": "MHR_POSE_DATA",
+     "link": 20,
+     "shape": 7
+    }
+   ],
+   "outputs": [
+    {
+     "name": "posed",
+     "type": "MHR_POSE_DATA",
+     "links": [
+      21
+     ]
+    }
+   ],
+   "title": "Copy the reference pose onto her fitted body",
+   "properties": {
+    "Node name for S&R": "MHRPoseTransfer"
+   },
+   "widgets_values": [
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "id": 53,
+   "type": "MHRViewRender",
+   "pos": [
+    1120,
+    1180
+   ],
+   "size": [
+    340,
+    230
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "posed",
+     "type": "MHR_POSE_DATA",
+     "link": 21
+    },
+    {
+     "name": "source_pose_data",
+     "type": "MHR_POSE_DATA",
+     "link": 22
+    },
+    {
+     "name": "source_image",
+     "type": "IMAGE",
+     "link": 23
+    },
+    {
+     "name": "yaw_degrees",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "yaw_degrees"
+     }
+    },
+    {
+     "name": "pitch_degrees",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "pitch_degrees"
+     }
+    },
+    {
+     "name": "zoom",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "zoom"
+     }
+    },
+    {
+     "name": "fill_unseen",
+     "type": "BOOLEAN",
+     "link": null,
+     "widget": {
+      "name": "fill_unseen"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "control_depth",
+     "type": "IMAGE",
+     "links": [
+      24,
+      38
+     ]
+    },
+    {
+     "name": "shaded",
+     "type": "IMAGE",
+     "links": [
+      25,
+      28
+     ]
+    },
+    {
+     "name": "color",
+     "type": "IMAGE",
+     "links": [
+      26,
+      27
+     ]
+    },
+    {
+     "name": "body_mask",
+     "type": "MASK",
+     "links": []
+    },
+    {
+     "name": "unseen",
+     "type": "MASK",
+     "links": []
+    }
+   ],
+   "title": "Camera: orbit / zoom + texture projected from the photo",
+   "properties": {
+    "Node name for S&R": "MHRViewRender"
+   },
+   "widgets_values": [
+    0.0,
+    0.0,
+    1.0,
+    true
+   ]
+  },
+  {
+   "id": 55,
+   "type": "PreviewImage",
+   "pos": [
+    1500,
+    1180
+   ],
+   "size": [
+    320,
+    380
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 24
+    }
+   ],
+   "outputs": [],
+   "title": "Control depth (goes to Qwen)",
+   "properties": {
+    "Node name for S&R": "PreviewImage"
+   }
+  },
+  {
+   "id": 56,
+   "type": "PreviewImage",
+   "pos": [
+    1830,
+    1180
+   ],
+   "size": [
+    320,
+    380
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 25
+    }
+   ],
+   "outputs": [],
+   "title": "Grey mannequin",
+   "properties": {
+    "Node name for S&R": "PreviewImage"
+   }
+  },
+  {
+   "id": 57,
+   "type": "PreviewImage",
+   "pos": [
+    2160,
+    1180
+   ],
+   "size": [
+    320,
+    380
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 26
+    }
+   ],
+   "outputs": [],
+   "title": "Textured render (unseen parts smeared)",
+   "properties": {
+    "Node name for S&R": "PreviewImage"
+   }
+  },
+  {
+   "id": 54,
+   "type": "ImagePick",
+   "pos": [
+    1500,
+    1620
+   ],
+   "size": [
+    330,
+    100
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "pick",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "pick"
+     }
+    },
+    {
+     "name": "a",
+     "type": "IMAGE",
+     "link": 27,
+     "shape": 7
+    },
+    {
+     "name": "b",
+     "type": "IMAGE",
+     "link": 28,
+     "shape": 7
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      30
+     ]
+    }
+   ],
+   "title": "Qwen image_1:  a = textured render   b = grey mannequin (for outfit / character references)",
+   "properties": {
+    "Node name for S&R": "ImagePick"
+   },
+   "widgets_values": [
+    "a"
+   ]
+  },
+  {
+   "id": 58,
+   "type": "LoadImage",
+   "pos": [
+    40,
+    1700
+   ],
+   "size": [
+    300,
+    420
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 4,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "image"
+     }
+    },
+    {
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "link": null,
+     "widget": {
+      "name": "upload"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      31
+     ]
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": []
+    }
+   ],
+   "title": "Outfit reference (bypassed = off)  ·  say \"wearing the outfit in <image2>\"",
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "train_src.png",
+    "image"
+   ]
+  },
+  {
+   "id": 59,
+   "type": "LoadImage",
+   "pos": [
+    400,
+    1700
+   ],
+   "size": [
+    300,
+    420
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 4,
+   "inputs": [
+    {
+     "name": "image",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "image"
+     }
+    },
+    {
+     "name": "upload",
+     "type": "IMAGEUPLOAD",
+     "link": null,
+     "widget": {
+      "name": "upload"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      32
+     ]
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": []
+    }
+   ],
+   "title": "Character reference (bypassed = off)  ·  \"the character in <image3>\"",
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "train_src.png",
+    "image"
+   ]
+  },
+  {
+   "id": 60,
+   "type": "PrimitiveStringMultiline",
+   "pos": [
+    760,
+    1700
+   ],
+   "size": [
+    520,
+    260
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "value",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "value"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "name": "STRING",
+     "type": "STRING",
+     "links": [
+      34
+     ]
+    }
+   ],
+   "title": "Prompt",
+   "properties": {
+    "Node name for S&R": "PrimitiveStringMultiline"
+   },
+   "widgets_values": [
+    "Redraw <image1> as a clean photograph in the same style, keeping the same character, face and proportions. Fill in any smeared or missing surface naturally."
+   ]
+  },
+  {
+   "id": 61,
+   "type": "MarkdownNote",
+   "pos": [
+    1500,
+    40
+   ],
+   "size": [
+    900,
+    1000
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "How this works",
+   "properties": {},
+   "widgets_values": [
+    "**Qwen 3D character: re-pose and re-camera her, then let Qwen redraw it**\n\nRuns on top of the same pieces as *Qwen Mannequin Edit* (Sapiens2 + SAM 3D Body fit), but instead of editing the photo in place it builds her as a posable 3D body and renders a new view.\n\n**How to use**\n1. Load her picture in **1 · Source image** and run once. The fitted body keeps her proportions (bust, waist, hips) from the photo.\n2. **Camera**: set *yaw* (orbit) / *pitch* / *zoom* in *MHR View Render*. Colours are projected from the photo; surface the photo never saw comes out smeared and Qwen fills it in.\n3. **Pose**: un-bypass (Ctrl+B) the *Pose reference* loader and its *Pose of the reference image* node; the pose is copied onto her body.\n4. **Outfit / character references**: un-bypass the reference loaders you need, set *Image Pick* to **b** (grey mannequin), and name them in the prompt (`<image2>` = outfit, `<image3>` = other character).\n5. **Prompt only**: leave every loader bypassed, keep Image Pick on **a**, write what you want.\n\nEvery preview shows what goes into Qwen: the control depth (near = bright), the grey mannequin and the textured render.\n\n*First version: pose copy and camera orbit are geometry only; check the previews before spending a Qwen run on them.*"
+   ],
+   "widgets_values_named": {
+    "text": "**Qwen mannequin edit, planned by a VLM**\n\n0. **Plan** - type the edit in plain words. A Qwen3-VL reads the image and instruction and decides: the edit type (outfit / recolour / local / background / pose), whether the body silhouette changes (only then is the mannequin control used), which parts of the old outfit are removed (-> negative prompt, and hair/glasses dropped from the silhouette), and it writes what must stay the same (face, hair, build, pose, camera, framing, background) into the prompt, even if you did not mention it.\n1. **Perception** - Sapiens2 splits the figure into skin (trusted) vs clothing/armor, and measures the clothed depth.\n2. **Mannequin** - SAM 3D Body base body, refit with bounded sliders to match visible skin and stay inside the clothed silhouette; real depth where skin is visible, fitted body where clothing hides it.\n3. **Edit** - the mannequin depth drives the Qwen Union control (strength 0.8, end 0.8 from the planner) so the body is fixed and the prompt changes the clothes. For recolours and small edits the planner switches the control off and stages 1-2 are skipped (lazy gates), so the edit is a plain reference edit.\n\n**Knobs**: planner `force_mannequin` (auto/on/off), `mannequin_strength`, `mannequin_end`, base negative. Check the previews: enriched prompt, plan, regions, mannequin, control depth."
+   },
+   "color": "#432",
+   "bgcolor": "#653"
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   2,
+   0,
+   "IMAGE"
+  ],
+  [
+   2,
+   1,
+   0,
+   8,
+   0,
+   "IMAGE"
+  ],
+  [
+   3,
+   7,
+   0,
+   8,
+   1,
+   "SAPIENS2_MODEL"
+  ],
+  [
+   4,
+   8,
+   0,
+   9,
+   0,
+   "MASK"
+  ],
+  [
+   5,
+   1,
+   0,
+   13,
+   0,
+   "IMAGE"
+  ],
+  [
+   6,
+   12,
+   0,
+   13,
+   1,
+   "SAPIENS2_MODEL"
+  ],
+  [
+   7,
+   16,
+   0,
+   17,
+   0,
+   "SAM3D_BODY_MODEL"
+  ],
+  [
+   8,
+   1,
+   0,
+   17,
+   1,
+   "IMAGE"
+  ],
+  [
+   9,
+   16,
+   0,
+   18,
+   0,
+   "SAM3D_BODY_MODEL"
+  ],
+  [
+   10,
+   17,
+   0,
+   18,
+   1,
+   "MHR_POSE_DATA"
+  ],
+  [
+   11,
+   13,
+   0,
+   18,
+   2,
+   "MASK"
+  ],
+  [
+   12,
+   9,
+   0,
+   18,
+   3,
+   "MASK"
+  ],
+  [
+   13,
+   2,
+   0,
+   18,
+   5,
+   "INT"
+  ],
+  [
+   14,
+   2,
+   1,
+   18,
+   6,
+   "INT"
+  ],
+  [
+   15,
+   9,
+   6,
+   18,
+   4,
+   "MASK"
+  ],
+  [
+   16,
+   16,
+   0,
+   51,
+   0,
+   "SAM3D_BODY_MODEL"
+  ],
+  [
+   17,
+   50,
+   0,
+   51,
+   1,
+   "IMAGE"
+  ],
+  [
+   18,
+   16,
+   0,
+   52,
+   0,
+   "SAM3D_BODY_MODEL"
+  ],
+  [
+   19,
+   18,
+   0,
+   52,
+   1,
+   "MHR_POSE_DATA"
+  ],
+  [
+   20,
+   51,
+   0,
+   52,
+   5,
+   "MHR_POSE_DATA"
+  ],
+  [
+   21,
+   52,
+   0,
+   53,
+   0,
+   "MHR_POSE_DATA"
+  ],
+  [
+   22,
+   18,
+   0,
+   53,
+   1,
+   "MHR_POSE_DATA"
+  ],
+  [
+   23,
+   1,
+   0,
+   53,
+   2,
+   "IMAGE"
+  ],
+  [
+   24,
+   53,
+   0,
+   55,
+   0,
+   "IMAGE"
+  ],
+  [
+   25,
+   53,
+   1,
+   56,
+   0,
+   "IMAGE"
+  ],
+  [
+   26,
+   53,
+   2,
+   57,
+   0,
+   "IMAGE"
+  ],
+  [
+   27,
+   53,
+   2,
+   54,
+   1,
+   "IMAGE"
+  ],
+  [
+   28,
+   53,
+   1,
+   54,
+   2,
+   "IMAGE"
+  ],
+  [
+   29,
+   28,
+   0,
+   31,
+   0,
+   "CLIP"
+  ],
+  [
+   30,
+   54,
+   0,
+   31,
+   1,
+   "IMAGE"
+  ],
+  [
+   31,
+   58,
+   0,
+   31,
+   2,
+   "IMAGE"
+  ],
+  [
+   32,
+   59,
+   0,
+   31,
+   3,
+   "IMAGE"
+  ],
+  [
+   33,
+   29,
+   0,
+   31,
+   4,
+   "VAE"
+  ],
+  [
+   34,
+   60,
+   0,
+   31,
+   5,
+   "STRING"
+  ],
+  [
+   35,
+   27,
+   0,
+   32,
+   0,
+   "MODEL"
+  ],
+  [
+   36,
+   30,
+   0,
+   32,
+   1,
+   "MODEL_PATCH"
+  ],
+  [
+   37,
+   29,
+   0,
+   32,
+   2,
+   "VAE"
+  ],
+  [
+   38,
+   53,
+   0,
+   32,
+   3,
+   "IMAGE"
+  ],
+  [
+   39,
+   32,
+   0,
+   34,
+   0,
+   "MODEL"
+  ],
+  [
+   40,
+   31,
+   0,
+   34,
+   1,
+   "CONDITIONING"
+  ],
+  [
+   41,
+   31,
+   1,
+   34,
+   2,
+   "CONDITIONING"
+  ],
+  [
+   42,
+   31,
+   2,
+   34,
+   3,
+   "LATENT"
+  ],
+  [
+   43,
+   34,
+   0,
+   35,
+   0,
+   "LATENT"
+  ],
+  [
+   44,
+   29,
+   0,
+   35,
+   1,
+   "VAE"
+  ],
+  [
+   45,
+   35,
+   0,
+   36,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [
+  {
+   "id": 1,
+   "title": "1 · Perception + fit her body (from the photo)",
+   "bounding": [
+    0,
+    -40,
+    1100,
+    1050
+   ],
+   "color": "#3f789e",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "id": 2,
+   "title": "2 · Pose + camera (optional pose reference, orbit/zoom) → textured render + control depth",
+   "bounding": [
+    0,
+    1100,
+    2250,
+    1060
+   ],
+   "color": "#a1309b",
+   "font_size": 24,
+   "flags": {}
+  },
+  {
+   "id": 3,
+   "title": "3 · Qwen edit",
+   "bounding": [
+    1860,
+    1900,
+    1500,
+    650
+   ],
+   "color": "#3f9e5a",
+   "font_size": 24,
+   "flags": {}
+  }
+ ],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.5,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ },
+ "version": 0.4
+}

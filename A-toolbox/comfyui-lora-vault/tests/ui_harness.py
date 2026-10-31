@@ -51,6 +51,15 @@ with sync_playwright() as pw:
     # strength edit rewrites the tag
     pg.fill(".lv-card input.num >> nth=0", "0.7"); pg.dispatch_event(".lv-card input.num >> nth=0", "change")
     pg.wait_for_function("window.__node.widgets[0].value.includes('<lora:Pony Thing - v2:0.7:1>') || window.__node.widgets[0].value.includes('<lora:Pony Thing - v2:0.7>')")
+    # rapid arrow clicks: instant, no redraw (the field keeps focus), last value wins
+    pg.evaluate("window.__strIn = document.querySelector('.lv-card input.num')")
+    for v in ("0.75", "0.8", "0.85", "0.9"):
+        pg.fill(".lv-card input.num >> nth=0", v); pg.dispatch_event(".lv-card input.num >> nth=0", "change")
+    assert pg.evaluate("window.__strIn.isConnected"), "strength input was redrawn"
+    assert "<lora:Pony Thing - v2:0.9" in pg.evaluate("window.__node.widgets[0].value")
+    time.sleep(1.0)
+    assert pg.evaluate("window.__strIn.isConnected") and pg.evaluate("window.__strIn.value") == "0.9"
+    pg.fill(".lv-card input.num >> nth=0", "0.7"); pg.dispatch_event(".lv-card input.num >> nth=0", "change")
     # cog: layers + split clip, then reset
     pg.click(".lv-card button.cog"); pg.wait_for_selector(".lv-cog")
     pg.fill(".lv-cog input[placeholder=first]", "14"); pg.dispatch_event(".lv-cog input[placeholder=first]", "change")

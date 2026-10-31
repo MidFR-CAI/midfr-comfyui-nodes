@@ -65,3 +65,18 @@ def to_tensors(rgb, alpha):
         mask = 1.0 - torch.from_numpy(np.array(alpha).astype(np.float32) / 255.0)[None,]
         mask = mask.clamp(0.0, 1.0)  # Lanczos can overshoot slightly
     return image, mask
+
+
+def load_painted_mask(path, size):
+    """Mask painted in the node's own paint tool: a PNG whose ALPHA is the mask. -> float32 HxW array 0..1 at `size`
+    (width, height), or None if the file is missing / unreadable."""
+    import numpy as np
+
+    try:
+        with Image.open(path) as im:
+            a = im.convert("RGBA").getchannel("A")
+    except Exception:
+        return None
+    if a.size != tuple(size):
+        a = a.resize(tuple(size), Image.Resampling.BILINEAR if hasattr(Image, "Resampling") else Image.BILINEAR)
+    return np.asarray(a, dtype="float32") / 255.0

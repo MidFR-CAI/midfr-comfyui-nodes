@@ -113,3 +113,37 @@ class MaskTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PaintedMaskTests(unittest.TestCase):
+    def test_alpha_is_the_mask_and_resizes(self):
+        common = _load("common")
+        im = Image.new("RGBA", (40, 20), (0, 0, 0, 0))
+        for x in range(10, 20):
+            for y in range(5, 15):
+                im.putpixel((x, y), (255, 59, 59, 255))
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "m.png"); im.save(p)
+            m = common.load_painted_mask(p, (40, 20))
+            self.assertEqual(m.shape, (20, 40))
+            self.assertEqual(float(m[10, 15]), 1.0)
+            self.assertEqual(float(m[0, 0]), 0.0)
+            big = common.load_painted_mask(p, (80, 40))
+            self.assertEqual(big.shape, (40, 80))
+            self.assertGreater(float(big[20, 30]), 0.99)
+            self.assertIsNone(common.load_painted_mask(os.path.join(d, "nope.png"), (4, 4)))
+
+class PassesTests(unittest.TestCase):
+    def test_one_pass_per_box_with_strength(self):
+        import json
+
+        L = layout
+        data = json.dumps([{"x": 0.0, "y": 0.0, "w": 0.5, "h": 0.5, "caption": "a", "strength": 0.95},
+                           {"x": 0.5, "y": 0.5, "w": 0.5, "h": 0.5, "caption": "b"}])
+        out = json.loads(L.build_passes(data, 64, 64, "scene"))
+        self.assertEqual([p["rect"] for p in out], [[0, 0, 32, 32], [32, 32, 64, 64]])
+        self.assertEqual([p["strength"] for p in out], [0.95, None])
+        self.assertIn('"caption":"a"', out[0]["prompt"])
+        self.assertNotIn('"caption":"b"', out[0]["prompt"])
+        self.assertEqual(L.build_passes("[]", 64, 64), "[]")
+

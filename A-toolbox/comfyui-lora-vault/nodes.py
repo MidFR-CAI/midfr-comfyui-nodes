@@ -72,5 +72,40 @@ class LoraVaultLoader:
         return (model, clip, ", ".join(words), "\n".join(loaded))
 
 
-NODE_CLASS_MAPPINGS = {"LoraVaultLoader": LoraVaultLoader}
-NODE_DISPLAY_NAME_MAPPINGS = {"LoraVaultLoader": "Lora Vault Loader"}
+class LoraLoaderLayers:
+    """Plain model-only LoRA loader with a layer range (no vault)."""
+
+    CATEGORY = "loaders"
+    FUNCTION = "load"
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
+    DESCRIPTION = "Load a LoRA onto the model, optionally only on transformer layers start..end (inclusive, end -1 = last)."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        import folder_paths
+
+        return {"required": {
+            "model": ("MODEL",),
+            "lora_name": (folder_paths.get_filename_list("loras"),),
+            "strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.05}),
+            "start_layer": ("INT", {"default": 0, "min": 0, "max": 999, "tooltip": "First layer the LoRA applies to."}),
+            "end_layer": ("INT", {"default": -1, "min": -1, "max": 999, "tooltip": "Last layer (inclusive); -1 = all the way to the end."}),
+        }}
+
+    def load(self, model, lora_name, strength, start_layer=0, end_layer=-1):
+        import comfy.sd
+        import comfy.utils
+        import folder_paths
+
+        if strength == 0:
+            return (model,)
+        lora = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("loras", lora_name), safe_load=True)
+        end = None if end_layer < 0 else end_layer
+        lora, _ = lora_fix.prepare(lora, model, start_layer or None, end)
+        model, _ = comfy.sd.load_lora_for_models(model, None, lora, strength, 0)
+        return (model,)
+
+
+NODE_CLASS_MAPPINGS = {"LoraVaultLoader": LoraVaultLoader, "LoraLoaderLayers": LoraLoaderLayers}
+NODE_DISPLAY_NAME_MAPPINGS = {"LoraVaultLoader": "Lora Vault Loader", "LoraLoaderLayers": "Load LoRA (layers, model only)"}

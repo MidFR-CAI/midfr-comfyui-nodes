@@ -39,10 +39,10 @@ class SameDirectoryTextSaver:
             # Save all outputs with labels
             parts = []
             if tagging_mode in ["wd_tagger", "both", "hybrid"] and use_wd_tags and wd_tags:
-                parts.append(f"WD Tags: {wd_tags}")
+                parts.append(wd_tags)
             if tagging_mode in ["qwen_vl", "both", "hybrid"] and use_qwen_caption and qwen_caption:
-                parts.append(f"Qwen Caption: {qwen_caption}")
-            text_content = "\n\n".join(parts) if parts else "NO_TAGS_GENERATED"
+                parts.append(qwen_caption)
+            text_content = separator.join(parts) if parts else "NO_TAGS_GENERATED"
         
         # Determine save path
         if source_directory and os.path.exists(source_directory):

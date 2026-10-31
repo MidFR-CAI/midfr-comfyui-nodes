@@ -18,8 +18,8 @@ Three small packs of custom [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 | **Image Upload + Resize** (`simple_image_upload_resize`) | Simple Image Upload + Resize (image + **mask**), Multi Image Upload + Resize (9), Image Set Splitter (9) | Drag-and-drop images, auto-resized to a megapixel cap. The mask comes from the image's alpha / the mask editor. |
 | **Saturation Match** (`comfyui-airpg-saturation-match`) | AIRPG Saturation Match | Fixes over-saturated edits by matching colour intensity to the reference image. |
 | **Strength to Denoise** (`comfyui-flow-strength`) | Strength to Denoise (flow models) | Invoke-style img2img strength converted to KSampler `denoise` (on MOSS-Image `denoise 0.9` keeps only ~2% of the source). |
-| **Image BBox Layout** (`image_bbox_layout`) | Image BBox Layout (MOSS) | Draw and prompt boxes on an image; outputs a MOSS-Image layout prompt, the boxes, a soft mask and the mask you paint (right-click > Open in MaskEditor). |
-| **Invoke Inpainting** (`invoke_inpainting`) | Invoke Inpainting (MOSS) | InvokeAI-style box + mask inpainting in one node. |
+| **Image BBox Layout** (`image_bbox_layout`) | Image BBox Layout (MOSS) | Draw and prompt boxes on an image; outputs a MOSS-Image layout prompt, the boxes and the mask you paint in the editor. |
+| **Invoke Inpainting** (`invoke_inpainting`) | Invoke Inpainting (MOSS) | InvokeAI-style box + mask inpainting in one node, plus a MOSS edit text encoder that hides the edit area from the reference. |
 | **Lora Vault** (`comfyui-lora-vault`) | Lora Vault Loader | LoRA manager: saves Civitai metadata, downloads weights on first use, tracks removals. |
 
 ## Pack B: Image Tagging

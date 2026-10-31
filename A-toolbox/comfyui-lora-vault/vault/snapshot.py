@@ -11,7 +11,7 @@ import time
 
 from . import civitai, config, db, storage
 
-LORA_TYPES = {"LORA", "LOCON", "DORA"}
+LORA_TYPES = {"LORA", "LOCON", "DORA"}  # the tags Civitai uses for real LoRAs (informational: every type can be saved)
 
 
 def pick_file(version: dict):
@@ -309,9 +309,8 @@ def save_version(version_id=None, model_id=None, pin=False, download=False, prog
             raise civitai.NotFound("This model has no published versions.")
         version_id = versions[0]["id"]  # newest first
     vdata = civitai.get_version(version_id)
-    model_type = ((vdata.get("model") or {}).get("type") or "LORA").upper()
-    if model_type not in LORA_TYPES:
-        raise ValueError(f"Only LoRAs can be saved (this is a '{model_type}').")
+    # Anything saved here is treated as a LoRA: if Civitai tags it as something else (Checkpoint, Other...) we assume the uploader
+    # tagged it wrong. The tag is kept in model_type so it still shows on the card.
     if mdata is None:
         try:
             mdata = civitai.get_model(vdata["modelId"])

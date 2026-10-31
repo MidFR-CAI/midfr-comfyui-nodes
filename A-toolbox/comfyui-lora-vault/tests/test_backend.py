@@ -38,6 +38,17 @@ def test_save_and_snapshot(env):
     assert snapshot.save_version(model_id=22)["version_id"] == 222
 
 
+def test_mistagged_types_are_saved_as_loras(env):
+    """Civitai tags some LoRAs as Checkpoint/Other/etc. by mistake: every type is accepted and treated as a LoRA."""
+    fake, _ = env
+    checker, civitai, db, parse, snapshot, storage = mods()
+    for vid, t in ((111, "Checkpoint"), (222, "Other"), (333, "TextualInversion")):
+        fake.versions[vid]["model"]["type"] = t
+        rec = snapshot.save_version(version_id=vid)
+        assert rec["version_id"] == vid and rec["model_type"] == t  # tag kept for display, no rejection
+        assert storage.local_state(rec) == "none"
+
+
 def test_download_on_demand_verifies_hash_and_strips_auth_on_cdn(env):
     fake, tmp = env
     checker, civitai, db, parse, snapshot, storage = mods()

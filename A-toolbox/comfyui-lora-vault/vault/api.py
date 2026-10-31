@@ -416,7 +416,8 @@ async def search(request):
     q = request.query
     try:
         data = await run(civitai.search_models, q.get("q", ""), q.get("base", ""), q.get("sort", "Most Downloaded"),
-                         q.get("period", "AllTime"), q.get("nsfw") == "1", q.get("cursor", ""))
+                         q.get("period", "AllTime"), q.get("nsfw") == "1", q.get("cursor", ""),
+                         20, q.get("types", "LORA"))
     except Exception as e:
         return _err(e)
     base = q.get("base", "")

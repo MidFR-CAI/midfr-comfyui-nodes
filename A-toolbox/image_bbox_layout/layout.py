@@ -38,17 +38,24 @@ def parse_boxes(data):
         y0, y1 = sorted((min(max(y0, 0.0), 1.0), min(max(y1, 0.0), 1.0)))
         if x1 <= x0 or y1 <= y0:
             continue
+        try:
+            strength = b.get("strength")
+            strength = None if strength in (None, "") else min(max(float(strength), 0.0), 1.0)
+            if strength is not None and not math.isfinite(strength):
+                strength = None
+        except (TypeError, ValueError):
+            strength = None
         out.append({"x0": x0, "y0": y0, "x1": x1, "y1": y1,
-                    "caption": str(b.get("caption") or "").strip()})
+                    "caption": str(b.get("caption") or "").strip(), "strength": strength})
     return out
 
 
 def _floor(v):
-    return math.floor(round(v, 9))
+    return math.floor(round(v, 4))
 
 
 def _ceil(v):
-    return math.ceil(round(v, 9))
+    return math.ceil(round(v, 4))
 
 
 def box_rects(bbox_data, width, height):
@@ -80,6 +87,24 @@ def build_prompt(bbox_data, width, height, prompt=""):
     doc = {"summary": {"caption": prompt.strip()}, "items": items,
            "bbox_coord_space": "abs_centralized", "bbox_format": "yxyx"}
     return json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
+
+
+def build_passes(bbox_data, width, height, prompt=""):
+    """One edit pass per box, in order -> JSON list of {"rect": [x0, y0, x1, y1] (px), "prompt": layout prompt with
+    just that box, "strength": the box's own strength or null}. [] when there are no boxes."""
+    rects = box_rects(bbox_data, width, height)
+    boxes = parse_boxes(bbox_data)
+    out = []
+    for b in boxes:  # same filter as box_rects so the two stay in step
+        x0, x1 = max(0, _floor(b["x0"] * width)), min(width, _ceil(b["x1"] * width))
+        y0, y1 = max(0, _floor(b["y0"] * height)), min(height, _ceil(b["y1"] * height))
+        if x1 <= x0 or y1 <= y0:
+            continue
+        one = [{"x": b["x0"], "y": b["y0"], "w": b["x1"] - b["x0"], "h": b["y1"] - b["y0"], "caption": b["caption"]}]
+        out.append({"rect": [x0, y0, x1, y1], "prompt": build_prompt(one, width, height, prompt), "strength": b["strength"],
+                    "caption": b["caption"], "summary": prompt.strip()})
+    assert len(out) == len(rects)
+    return json.dumps(out, separators=(",", ":"))
 
 
 MASK_MODES = ("boxes + masks", "boxes only", "masks only", "whole image")

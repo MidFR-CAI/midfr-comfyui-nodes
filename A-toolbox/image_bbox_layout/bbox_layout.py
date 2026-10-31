@@ -4,20 +4,21 @@ import os
 
 import folder_paths
 
-from .common import load_rgb_and_alpha, resize_pair, to_tensors
-from .layout import MASK_MODES, box_rects, build_prompt, combine_mask, soften_mask
+from .common import load_painted_mask, load_rgb_and_alpha, resize_pair, to_tensors
+from .layout import MASK_MODES, box_rects, build_passes, build_prompt
 
 
 class ImageBBoxLayout:
     CATEGORY = "image/layout"
-    RETURN_TYPES = ("IMAGE", "MASK", "STRING", "MASK", "MASK")
-    RETURN_NAMES = ("image", "mask", "prompt", "boxes", "painted")
+    RETURN_TYPES = ("IMAGE", "MASK", "STRING", "MASK", "STRING")
+    RETURN_NAMES = ("image", "painted", "prompt", "boxes", "passes")
     FUNCTION = "run"
     DESCRIPTION = (
-        "Upload an image (resized, sides snapped to 16), draw boxes on it and prompt each one. "
+        "Upload an image (resized, sides snapped to 16), then draw and prompt boxes and paint a mask in the editor. "
         "prompt is a MOSS-Image layout prompt, or just your text when there are no boxes. "
-        "boxes = the plain boxes (for Invoke Inpainting). painted = just what you painted with right-click > Open in MaskEditor (plus the mask input), no grow or feather. mask = boxes / image transparency / a mask input, grown and feathered. The boxes are a "
-        "suggestion: the soft mask edge pairs with Differential Diffusion."
+        "boxes = the plain boxes (for Invoke Inpainting's box_mask). painted = just what you painted, plus the mask "
+        "input and any transparency in the image (for Invoke Inpainting's inpaint_mask). "
+        "passes = one edit per box with its own prompt and strength (for Invoke Edit Boxes)."
     )
 
     @classmethod
@@ -30,13 +31,13 @@ class ImageBBoxLayout:
                 "prompt": ("STRING", {"default": "", "multiline": True,
                                       "tooltip": "Description of the whole image"}),
                 "bbox_data": ("STRING", {"default": "[]", "tooltip": "Boxes drawn in the editor (managed by the UI)"}),
-                "mask_mode": (list(MASK_MODES), {"default": "boxes + masks", "tooltip":
-                    "What makes the mask: boxes, image transparency + the mask input, both, or the whole image "
-                    "(boxes then only guide the prompt)"}),
-                "mask_grow": ("INT", {"default": 32, "min": 0, "max": 512, "step": 8,
-                                      "tooltip": "Expand the mask this many px"}),
-                "mask_feather": ("INT", {"default": 32, "min": 0, "max": 512, "step": 8,
-                                         "tooltip": "Soft edge in px (use with Differential Diffusion)"}),
+                # Legacy: the node used to build a grown/feathered mask from these. Unused now, kept only so the
+                # widget values saved in older workflows still line up. Hidden in the UI.
+                "mask_mode": (list(MASK_MODES), {"default": "boxes + masks", "tooltip": "(unused)"}),
+                "mask_grow": ("INT", {"default": 32, "min": 0, "max": 512, "step": 8, "tooltip": "(unused)"}),
+                "mask_feather": ("INT", {"default": 32, "min": 0, "max": 512, "step": 8, "tooltip": "(unused)"}),
+                # Managed by the editor; hidden there.
+                "mask_file": ("STRING", {"default": "", "tooltip": "Set by the editor"}),
             },
             "optional": {"mask": ("MASK",)},
         }
@@ -50,14 +51,20 @@ class ImageBBoxLayout:
         return True
 
     @classmethod
-    def IS_CHANGED(cls, image, **kwargs):
+    def IS_CHANGED(cls, image, mask_file="", **kwargs):
         try:
-            return os.path.getmtime(folder_paths.get_annotated_filepath(image))
+            stamp = [os.path.getmtime(folder_paths.get_annotated_filepath(image))]
+            if mask_file:
+                try:
+                    stamp.append(os.path.getmtime(folder_paths.get_annotated_filepath(mask_file)))
+                except Exception:
+                    pass
+            return tuple(stamp)
         except Exception:
             return float("NaN")
 
     def run(self, image, max_megapixels, prompt, bbox_data, mask_mode="boxes + masks",
-            mask_grow=32, mask_feather=32, mask=None):
+            mask_grow=32, mask_feather=32, mask_file="", mask=None):
         rgb, alpha = load_rgb_and_alpha(folder_paths.get_annotated_filepath(image))
         rgb, alpha = resize_pair(rgb, alpha, max_megapixels, multiple=16, always_snap=True)
         img, alpha_mask = to_tensors(rgb, alpha)
@@ -74,15 +81,19 @@ class ImageBBoxLayout:
             if ext_t.shape[-2:] != (h, w):
                 ext_t = torch.nn.functional.interpolate(ext_t, size=(h, w), mode="bilinear")
             ext = ext_t[0, 0].cpu().numpy()
-        arr = combine_mask(mask_mode, boxes, alpha_mask[0].cpu().numpy(), ext)
-        arr = soften_mask(arr, mask_grow, mask_feather)
-        out = torch.from_numpy(np.ascontiguousarray(arr)).float().clamp(0, 1).unsqueeze(0)
+        if mask_file:  # mask painted with the node's own Paint tool
+            try:
+                pm = load_painted_mask(folder_paths.get_annotated_filepath(mask_file), (w, h))
+            except Exception:
+                pm = None
+            if pm is not None:
+                ext = pm if ext is None else np.maximum(ext, pm)
         boxes_t = torch.from_numpy(boxes).float().unsqueeze(0)  # hard boxes, no grow/feather
-        painted = alpha_mask[0].cpu().numpy()
+        painted = alpha_mask[0].cpu().numpy()  # transparency in the image
         if ext is not None:
             painted = np.maximum(painted, ext)
         painted_t = torch.from_numpy(np.ascontiguousarray(painted)).float().clamp(0, 1).unsqueeze(0)
-        return (img, out, build_prompt(bbox_data, w, h, prompt), boxes_t, painted_t)
+        return (img, painted_t, build_prompt(bbox_data, w, h, prompt), boxes_t, build_passes(bbox_data, w, h, prompt))
 
 
 NODE_CLASS_MAPPINGS = {"ImageBBoxLayout": ImageBBoxLayout}

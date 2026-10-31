@@ -1,15 +1,11 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import { openEditor } from "./bbox_modal.js";
 
-// Image BBox Layout (MOSS): upload an image, drag boxes on it, prompt each box.
-// Boxes are stored normalised (0..1, top-left origin) in the hidden `bbox_data` widget, so they
-// stay correct whatever size the image is resized to; the backend turns them into MOSS pixels.
+// Image BBox Layout (MOSS): upload an image, then draw boxes and paint a mask in the full-screen editor
+// (bbox_modal.js). Boxes are stored normalised (0..1, top-left origin) in the hidden `bbox_data` widget, so they
+// stay correct whatever size the image is resized to; the painted mask is a small PNG named in `mask_file`.
 
-const COLORS = ["#ff5252", "#40c4ff", "#ffd740", "#69f0ae", "#e040fb", "#ff9100", "#18ffff", "#b2ff59"];
-const MIN = 0.01;          // smallest box edge (fraction of the image)
-const PANEL_H = 170;       // chips + caption box
-const MAX_STAGE_H = 640;
-const EMPTY_H = 200;
 
 function splitName(v) {
   let type = "input";
@@ -22,6 +18,25 @@ function splitName(v) {
 function viewUrl(value) {
   const p = new URLSearchParams({ ...splitName(value), rand: String(Math.random()) });
   return api.apiURL("/view?" + p.toString());
+}
+
+// Big photos make ComfyUI's mask editor crawl (it paints at the file's full size), and the node resizes to
+// max_megapixels when it runs anyway. So shrink on upload to at most this many pixels, keeping transparency.
+const MAX_UPLOAD_MP = 1.5;
+async function shrinkFile(file) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const px = bmp.width * bmp.height;
+    const cap = MAX_UPLOAD_MP * 1e6;
+    if (px <= cap) { bmp.close?.(); return file; }
+    const k = Math.sqrt(cap / px);
+    const w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k));
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(bmp, 0, 0, w, h); bmp.close?.();
+    const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".png", { type: "image/png" });
+  } catch { return file; } // can't decode here: upload as is
 }
 
 async function uploadFile(file) {
@@ -46,7 +61,11 @@ function notifyChange(delay = 0) {
 }
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
-const round4 = (v) => Math.round(v * 10000) / 10000;
+
+const COLORS = ["#ff5252", "#40c4ff", "#ffd740", "#69f0ae", "#e040fb", "#ff9100", "#18ffff", "#b2ff59"];
+const MAX_STAGE_H = 520;
+const EMPTY_H = 150;
+const EXTRA_H = 112;       // buttons + summary + padding around the preview
 
 function addStyle() {
   if (document.getElementById("bbl-style")) return;
@@ -56,33 +75,18 @@ function addStyle() {
     .bbl-root{display:flex;flex-direction:column;gap:6px;width:100%;height:100%;box-sizing:border-box;
       pointer-events:auto;font-size:12px;color:#ddd;font-family:sans-serif}
     .bbl-bar{display:flex;align-items:center;gap:6px}
-    .bbl-btn{padding:3px 10px;cursor:pointer;border-radius:4px;border:1px solid #666;background:#333;color:#eee;font-size:12px}
+    .bbl-btn{white-space:nowrap;padding:3px 10px;cursor:pointer;border-radius:4px;border:1px solid #666;background:#333;color:#eee;font-size:12px}
     .bbl-btn:hover{background:#444}
+    .bbl-btn.pri{background:#2d6cdf;border-color:#2d6cdf;color:#fff;font-weight:600;padding:5px 14px}
+    .bbl-btn.pri:hover{background:#3a7af0}
     .bbl-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.7}
-    .bbl-stage{position:relative;margin:0 auto;background:#1e1e1e;border:1px solid #555;border-radius:4px;overflow:hidden;user-select:none}
-    .bbl-stage img{display:block;width:100%;height:auto;pointer-events:none;-webkit-user-drag:none}
+    .bbl-stage{position:relative;margin:0 auto;background:#1e1e1e;border:1px solid #555;border-radius:4px;overflow:hidden;user-select:none;cursor:pointer}
+    .bbl-stage img{display:block;width:100%;height:auto;pointer-events:none;-webkit-user-drag:none;
+      background:repeating-conic-gradient(#555 0% 25%, #3a3a3a 0% 50%) 0 0 / 16px 16px}
+    .bbl-stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     .bbl-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
-      white-space:pre-line;opacity:.55;cursor:pointer}
-    .bbl-over{position:absolute;inset:0;cursor:crosshair;touch-action:none;outline:none}
-    .bbl-box{position:absolute;box-sizing:border-box;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);cursor:move;touch-action:none}
-    .bbl-box.sel{border-width:3px;background:color-mix(in srgb,var(--c) 26%,transparent)}
-    .bbl-tag{position:absolute;left:0;top:0;background:var(--c);color:#000;font-weight:bold;padding:0 5px;border-radius:0 0 3px 0;
-      font-size:11px;line-height:16px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
-    .bbl-h{position:absolute;width:12px;height:12px;background:var(--c);border:1px solid #000;box-sizing:border-box;display:none;touch-action:none}
-    .bbl-box.sel .bbl-h{display:block}
-    .bbl-h[data-h=nw]{left:-7px;top:-7px;cursor:nwse-resize}.bbl-h[data-h=ne]{right:-7px;top:-7px;cursor:nesw-resize}
-    .bbl-h[data-h=sw]{left:-7px;bottom:-7px;cursor:nesw-resize}.bbl-h[data-h=se]{right:-7px;bottom:-7px;cursor:nwse-resize}
-    .bbl-panel{display:flex;flex-direction:column;gap:5px;min-height:0}
-    .bbl-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:20px;align-items:center}
-    .bbl-chiplabel{font-weight:600;opacity:.8;margin-right:2px}
-    .bbl-chip{padding:3px 12px;border-radius:12px;border:2px solid var(--c);background:#2a2a2a;color:#eee;cursor:pointer;font-size:12px}
-    .bbl-chip:hover{background:color-mix(in srgb,var(--c) 30%,#2a2a2a)}
-    .bbl-chip.sel{background:var(--c);color:#000;font-weight:bold}
-    .bbl-caplabel{flex:1;font-weight:600}
-    .bbl-row{display:flex;gap:6px;align-items:center}
-    .bbl-ta{width:100%;min-height:64px;resize:vertical;background:#222;color:#eee;border:1px solid #666;border-radius:4px;padding:4px 6px;
-      font-size:12px;font-family:inherit;box-sizing:border-box}
-    .bbl-hint{opacity:.55}
+      white-space:pre-line;opacity:.55}
+    .bbl-hint{opacity:.6}
   `;
   document.head.appendChild(s);
 }
@@ -94,59 +98,45 @@ app.registerExtension({
     if (node.comfyClass !== "ImageBBoxLayout") return;
     const imageW = node.widgets.find((w) => w.name === "image");
     const dataW = node.widgets.find((w) => w.name === "bbox_data");
+    const maskW = node.widgets.find((w) => w.name === "mask_file");
     if (!imageW || !dataW) return;
-    for (const w of [imageW, dataW]) { w.hidden = true; w.computeSize = () => [0, -4]; }
+    for (const w of [imageW, dataW, maskW]) if (w) { w.hidden = true; w.computeSize = () => [0, -4]; }
     addStyle();
 
-    let boxes = [];       // {x,y,w,h,caption}
-    let sel = -1;
+    let boxes = [];       // {x,y,w,h,caption}, normalised
     let aspect = 0;       // image width / height once loaded
-    let els = [];         // box elements, parallel to boxes
+    let maskImg = null;   // the painted mask (alpha), for the preview
+    let promptMode = false; // the plain prompt box is shown instead of the box editor: keep the picture, drop the editing UI
 
-    // ---------- DOM ----------
+    // ---------- DOM: a read-only preview; editing happens in the full-screen editor ----------
     const root = document.createElement("div"); root.className = "bbl-root";
-
     const bar = document.createElement("div"); bar.className = "bbl-bar";
     const upBtn = document.createElement("button"); upBtn.className = "bbl-btn"; upBtn.textContent = "Upload image";
     const nameEl = document.createElement("span"); nameEl.className = "bbl-name";
-    const clearBtn = document.createElement("button"); clearBtn.className = "bbl-btn"; clearBtn.textContent = "Clear boxes";
-    bar.append(upBtn, nameEl, clearBtn);
+    bar.append(upBtn, nameEl);
 
     const stage = document.createElement("div"); stage.className = "bbl-stage";
-    const img = document.createElement("img"); img.draggable = false; img.style.background = "repeating-conic-gradient(#555 0% 25%, #3a3a3a 0% 50%) 0 0 / 16px 16px"; img.decoding = "async"; img.style.display = "none";
+    const img = document.createElement("img"); img.draggable = false; img.decoding = "async"; img.style.display = "none";
+    const prev = document.createElement("canvas");
     const empty = document.createElement("div"); empty.className = "bbl-empty";
     empty.textContent = "Drop an image here\nor click to upload";
-    const over = document.createElement("div"); over.className = "bbl-over"; over.tabIndex = 0; over.style.display = "none";
-    stage.append(img, empty, over);
+    stage.append(img, prev, empty);
 
-    const panel = document.createElement("div"); panel.className = "bbl-panel";
-    const chips = document.createElement("div"); chips.className = "bbl-chips";
-    const ctrl = document.createElement("div"); ctrl.className = "bbl-row";
-    const delBtn = document.createElement("button"); delBtn.className = "bbl-btn"; delBtn.textContent = "Delete box";
-    const capLabel = document.createElement("span"); capLabel.className = "bbl-caplabel";
-    ctrl.append(capLabel, delBtn);
-    const capIn = document.createElement("textarea"); capIn.className = "bbl-ta";
-    capIn.placeholder = "Prompt for this box: what should appear here?";
-    const hint = document.createElement("div"); hint.className = "bbl-hint";
-    hint.textContent = "Drag on the image to add a box. Click a box to edit its prompt; drag its corners to resize.";
-    panel.append(chips, ctrl, capIn, hint);
+    const row = document.createElement("div"); row.className = "bbl-bar";
+    const editBtn = document.createElement("button"); editBtn.className = "bbl-btn pri"; editBtn.textContent = "Edit boxes & mask";
+    const summary = document.createElement("span"); summary.className = "bbl-hint";
+    row.append(editBtn, summary);
 
     const fileIn = document.createElement("input"); fileIn.type = "file"; fileIn.accept = "image/*"; fileIn.style.display = "none";
-    root.append(bar, stage, panel, fileIn);
-
-    // Keep canvas shortcuts (Delete, Ctrl+..., etc.) from firing while typing here.
-    for (const el of [capIn]) el.addEventListener("keydown", (e) => e.stopPropagation());
+    root.append(bar, stage, row, fileIn);
 
     // ---------- state ----------
     function save() {
-      dataW.value = JSON.stringify(boxes.map((b) => ({
-        x: round4(b.x), y: round4(b.y), w: round4(b.w), h: round4(b.h),
-        caption: b.caption,
-      })));
+      dataW.value = JSON.stringify(boxes);
       node.setDirtyCanvas(true, true);
       notifyChange(250);
+      drawPreview();
     }
-
     function loadBoxes() {
       let raw = [];
       try { raw = JSON.parse(dataW.value || "[]"); } catch { raw = []; }
@@ -156,78 +146,38 @@ app.registerExtension({
           const x = clamp01(+r.x), y = clamp01(+r.y);
           const w = Math.min(+r.w, 1 - x), h = Math.min(+r.h, 1 - y);
           if (!(w > 0) || !(h > 0)) continue;
-          boxes.push({
-            x, y, w, h,
-            caption: typeof r.caption === "string" ? r.caption : "",
-          });
+          boxes.push({ x, y, w, h, caption: typeof r.caption === "string" ? r.caption : "", strength: r.strength == null || r.strength === "" ? null : +r.strength });
         }
       }
-      sel = -1;
+    }
+    function loadMaskImg() {
+      maskImg = null;
+      if (!maskW || !maskW.value) { drawPreview(); return; }
+      const m = new Image();
+      const v = maskW.value;
+      m.onload = () => { if (maskW.value === v) { maskImg = m; drawPreview(); } };
+      m.src = viewUrl(v);
     }
 
-    // ---------- rendering ----------
-    const color = (i) => COLORS[i % COLORS.length];
-
-    function geom(el, b) {
-      el.style.left = b.x * 100 + "%"; el.style.top = b.y * 100 + "%";
-      el.style.width = b.w * 100 + "%"; el.style.height = b.h * 100 + "%";
-    }
-
-    function tagText(i) {
-      const b = boxes[i];
-      return `Box ${i + 1}` + (b.caption ? `: ${b.caption}` : "");
-    }
-
-    function renderBoxes() {
-      over.replaceChildren();
-      els = boxes.map((b, i) => {
-        const el = document.createElement("div");
-        el.className = "bbl-box" + (i === sel ? " sel" : "");
-        el.style.setProperty("--c", color(i));
-        el.dataset.i = i;
-        const tag = document.createElement("div"); tag.className = "bbl-tag"; tag.textContent = tagText(i);
-        el.append(tag);
-        for (const h of ["nw", "ne", "sw", "se"]) {
-          const hd = document.createElement("div"); hd.className = "bbl-h"; hd.dataset.h = h; el.append(hd);
-        }
-        geom(el, b);
-        over.append(el);
-        return el;
-      });
-      renderPanel();
-    }
-
-    function updateSelection() {
-      els.forEach((el, i) => el.classList.toggle("sel", i === sel));
-      renderPanel();
-    }
-
-    function renderPanel() {
-      chips.replaceChildren();
-      if (boxes.length) {
-        const lab = document.createElement("span"); lab.className = "bbl-chiplabel";
-        lab.textContent = "Boxes (click to select):"; chips.append(lab);
-      }
+    // ---------- preview ----------
+    function drawPreview() {
+      const has = imageW.value && imageW.value !== "none";
+      const painted = !!(maskW && maskW.value);
+      summary.textContent = has ? `${boxes.length} box${boxes.length === 1 ? "" : "es"}${painted ? " · mask painted" : ""}` : "";
+      if (!aspect) return;
+      const W = 640, H = Math.max(1, Math.round(W / aspect));
+      if (prev.width !== W || prev.height !== H) { prev.width = W; prev.height = H; }
+      const c = prev.getContext("2d");
+      c.clearRect(0, 0, W, H);
+      if (maskImg) { c.globalAlpha = 0.55; c.drawImage(maskImg, 0, 0, W, H); c.globalAlpha = 1; }
       boxes.forEach((b, i) => {
-        const c = document.createElement("button");
-        c.className = "bbl-chip" + (i === sel ? " sel" : "");
-        c.style.setProperty("--c", color(i));
-        c.textContent = `Box ${i + 1}`;
-        c.title = b.caption || "no prompt yet";
-        c.addEventListener("click", () => { sel = i; updateSelection(); });
-        chips.append(c);
+        const col = COLORS[i % COLORS.length];
+        const x = b.x * W, y = b.y * H, w = b.w * W, h = b.h * H;
+        c.fillStyle = col + "26"; c.fillRect(x, y, w, h);
+        c.strokeStyle = col; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.font = "bold 18px sans-serif"; c.fillStyle = col; c.fillRect(x, y, 26, 24);
+        c.fillStyle = "#000"; c.textBaseline = "middle"; c.textAlign = "center"; c.fillText(String(i + 1), x + 13, y + 13); c.textAlign = "start";
       });
-      const has = sel >= 0 && sel < boxes.length;
-      ctrl.style.display = capIn.style.display = has ? "" : "none";
-      hint.style.display = has ? "none" : "";
-      hint.textContent = boxes.length
-        ? "Click a box on the image, or a Box button above, to write its prompt. Without boxes, the prompt is passed through as plain text."
-        : "Drag on the image to add a box. Without boxes, the prompt is passed through as plain text.";
-      if (has) {
-        const b = boxes[sel];
-        capLabel.textContent = `Prompt for Box ${sel + 1}`;
-        capIn.value = b.caption;
-      }
     }
 
     // ---------- image ----------
@@ -248,16 +198,16 @@ app.registerExtension({
       node.setSize([Math.max(node.size?.[0] ?? 0, sz[0]), sz[1]]);
       node.setDirtyCanvas(true, true);
     }
-
     function refreshImage() {
       const v = imageW.value;
       const has = v && v !== "none";
       nameEl.textContent = has ? v : "no image";
       nameEl.title = has ? v : "";
       empty.style.display = has ? "none" : "flex";
-      over.style.display = has ? "block" : "none";
       img.style.display = has ? "block" : "none";
-      if (!has) { delete img.dataset.v; img.removeAttribute("src"); aspect = 0; layoutStage(); return; }
+      prev.style.display = has && !promptMode ? "block" : "none";
+      editBtn.disabled = !has;
+      if (!has) { delete img.dataset.v; img.removeAttribute("src"); aspect = 0; layoutStage(); drawPreview(); return; }
       if (img.dataset.v !== v) { img.dataset.v = v; img.src = viewUrl(v); }
     }
     img.addEventListener("load", () => {
@@ -265,6 +215,7 @@ app.registerExtension({
         aspect = img.naturalWidth / img.naturalHeight;
         layoutStage();
         fitNode();
+        drawPreview();
       }
     });
     img.addEventListener("error", () => { nameEl.textContent = "can't load: " + imageW.value; });
@@ -272,7 +223,8 @@ app.registerExtension({
     async function handleFile(file) {
       if (!file || !file.type.startsWith("image/")) return;
       try {
-        imageW.value = await uploadFile(file);
+        imageW.value = await uploadFile(await shrinkFile(file));
+        if (maskW && maskW.value) { maskW.value = ""; maskImg = null; } // a mask belongs to one picture
         node.setDirtyCanvas(true, true);
         notifyChange();
         refreshImage();
@@ -282,184 +234,69 @@ app.registerExtension({
       }
     }
     upBtn.addEventListener("click", () => fileIn.click());
-    empty.addEventListener("click", () => fileIn.click());
     fileIn.addEventListener("change", () => { if (fileIn.files[0]) handleFile(fileIn.files[0]); fileIn.value = ""; });
-    for (const t of [stage, empty]) {
-      t.addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); stage.style.borderColor = "#4a9eff"; });
-      t.addEventListener("dragleave", () => { stage.style.borderColor = ""; });
-      t.addEventListener("drop", (e) => {
-        e.preventDefault(); e.stopPropagation(); stage.style.borderColor = "";
-        if (e.dataTransfer?.files?.length) handleFile(e.dataTransfer.files[0]);
+    stage.addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); stage.style.borderColor = "#4a9eff"; });
+    stage.addEventListener("dragleave", () => { stage.style.borderColor = ""; });
+    stage.addEventListener("drop", (e) => {
+      e.preventDefault(); e.stopPropagation(); stage.style.borderColor = "";
+      if (e.dataTransfer?.files?.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    // ---------- editor ----------
+    async function uploadMask(blob) {
+      if (!maskW) return;
+      if (!blob) { if (maskW.value) { maskW.value = ""; maskImg = null; notifyChange(); } return; }
+      const name = maskW.value || `midfr_mask_${Math.random().toString(36).slice(2, 10)}.png`;
+      const body = new FormData();
+      body.append("image", new File([blob], name, { type: "image/png" }));
+      body.append("type", "input"); body.append("overwrite", "true");
+      const resp = await api.fetchApi("/upload/image", { method: "POST", body });
+      if (resp.status !== 200) throw new Error(`${resp.status} ${resp.statusText}`);
+      const data = await resp.json();
+      maskW.value = data.subfolder ? `${data.subfolder}/${data.name}` : data.name;
+      notifyChange();
+    }
+    function edit() {
+      const v = imageW.value;
+      if (!v || v === "none") { fileIn.click(); return; }
+      const mp = node.widgets.find((w) => w.name === "max_megapixels")?.value ?? 1;
+      openEditor({
+        imageUrl: viewUrl(v),
+        maskUrl: maskW && maskW.value ? viewUrl(maskW.value) : null,
+        maxMp: mp,
+        boxes,
+        onBoxes: (b) => { boxes = b; save(); },
+        onMask: async (blob) => {
+          try { await uploadMask(blob); } catch (e) { console.error("mask upload failed", e); alert("Couldn't save the mask: " + e.message); }
+        },
+        onClose: () => { loadMaskImg(); node.setDirtyCanvas(true, true); },
       });
     }
-
-    // ---------- box interaction ----------
-    const pt = (e) => {
-      const r = over.getBoundingClientRect();
-      return { x: clamp01((e.clientX - r.left) / r.width), y: clamp01((e.clientY - r.top) / r.height) };
-    };
-
-    let drag = null;
-    // drag = {kind:"new"|"move"|"size", i, el, start:{x,y}, orig:{...}, fx, fy}
-
-    over.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
-      const boxEl = e.target.closest?.(".bbl-box");
-      const handle = e.target.closest?.(".bbl-h");
-      const p = pt(e);
-      e.preventDefault(); e.stopPropagation();
-      over.focus({ preventScroll: true });
-      if (boxEl) {
-        const i = +boxEl.dataset.i;
-        if (sel !== i) { sel = i; updateSelection(); }
-        const b = boxes[i];
-        if (handle) {
-          const hx = handle.dataset.h;
-          // the corner opposite the grabbed one stays fixed
-          drag = { kind: "size", i, el: boxEl, fx: hx.includes("w") ? b.x + b.w : b.x, fy: hx.includes("n") ? b.y + b.h : b.y };
-        } else {
-          drag = { kind: "move", i, el: boxEl, start: p, orig: { x: b.x, y: b.y } };
-        }
-      } else {
-        const el = document.createElement("div");
-        el.className = "bbl-box sel"; el.style.setProperty("--c", color(boxes.length));
-        el.style.pointerEvents = "none";
-        over.append(el);
-        drag = { kind: "new", el, start: p, cur: { x: p.x, y: p.y, w: 0, h: 0 } };
-        geom(el, drag.cur);
-      }
-      over.setPointerCapture(e.pointerId);
-    });
-
-    over.addEventListener("pointermove", (e) => {
-      if (!drag) return;
-      const p = pt(e);
-      if (drag.kind === "new") {
-        const c = drag.cur;
-        c.x = Math.min(drag.start.x, p.x); c.y = Math.min(drag.start.y, p.y);
-        c.w = Math.abs(p.x - drag.start.x); c.h = Math.abs(p.y - drag.start.y);
-        geom(drag.el, c);
-      } else if (drag.kind === "move") {
-        const b = boxes[drag.i];
-        b.x = Math.min(1 - b.w, Math.max(0, drag.orig.x + p.x - drag.start.x));
-        b.y = Math.min(1 - b.h, Math.max(0, drag.orig.y + p.y - drag.start.y));
-        geom(drag.el, b);
-      } else {
-        const b = boxes[drag.i];
-        b.x = Math.min(drag.fx, p.x); b.y = Math.min(drag.fy, p.y);
-        b.w = Math.abs(p.x - drag.fx); b.h = Math.abs(p.y - drag.fy);
-        geom(drag.el, b);
-      }
-    });
-
-    function endDrag(e) {
-      if (!drag) return;
-      const d = drag; drag = null;
-      try { over.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-      if (d.kind === "new") {
-        d.el.remove();
-        const c = d.cur;
-        if (c.w >= MIN && c.h >= MIN) {
-          boxes.push({ x: c.x, y: c.y, w: c.w, h: c.h, caption: "" });
-          sel = boxes.length - 1;
-          renderBoxes();
-          save();
-          capIn.focus({ preventScroll: true });
-        } else if (sel !== -1) { sel = -1; updateSelection(); }
-        return;
-      }
-      const b = boxes[d.i];
-      if (b.w < MIN || b.h < MIN) {          // shrunk to nothing: remove it
-        boxes.splice(d.i, 1); sel = -1; renderBoxes();
-      }
-      save();
-    }
-    over.addEventListener("pointerup", endDrag);
-    over.addEventListener("pointercancel", endDrag);
-
-    over.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if ((e.key === "Delete" || e.key === "Backspace") && sel >= 0) { e.preventDefault(); deleteSelected(); }
-    });
-
-    function deleteSelected() {
-      if (sel < 0) return;
-      boxes.splice(sel, 1); sel = -1; renderBoxes(); save();
-    }
-    delBtn.addEventListener("click", deleteSelected);
-    clearBtn.addEventListener("click", () => { boxes = []; sel = -1; renderBoxes(); save(); });
-
-    capIn.addEventListener("input", () => {
-      if (sel < 0) return;
-      boxes[sel].caption = capIn.value;
-      const t = els[sel]?.querySelector(".bbl-tag"); if (t) t.textContent = tagText(sel);
-      save();
-    });
+    editBtn.addEventListener("click", edit);
+    stage.addEventListener("click", () => { if (imageW.value && imageW.value !== "none") { if (!promptMode) edit(); } else fileIn.click(); });
 
     // ---------- widget ----------
+    const extraH = () => EXTRA_H - (promptMode ? 34 : 0);
     const widget = node.addDOMWidget("bbox_editor", "custom", root, {
       serialize: false,
       hideOnZoom: false,
-      getMinHeight: () => stageH(stageW()) + PANEL_H + 40,
+      getMinHeight: () => stageH(stageW()) + extraH(),
     });
-    widget.computeSize = (w) => [w, stageH(Math.max(120, (w ?? 400) - 24)) + PANEL_H + 40];
+    widget.computeSize = (w) => [w, stageH(Math.max(120, (w ?? 400) - 24)) + extraH()];
+    node.__bblSetMode = (v) => {
+      promptMode = !!v;
+      row.style.display = promptMode ? "none" : "";
+      stage.style.cursor = promptMode ? "default" : "";
+      refreshImage();
+    };
 
     function restore() {
       loadBoxes();
       layoutStage();
       refreshImage();
-      renderBoxes();
+      loadMaskImg();
+      drawPreview();
     }
-    // ---------- mask editor ----------
-    // ComfyUI's "Open in MaskEditor" only appears on nodes that hold a preview image (node.imgs). We hold ours in a
-    // DOM <img>, so lend it to the node just while the menu / editor needs it, then take it back (otherwise the core
-    // would also paint it as a node preview). The editor saves the painted mask as the image's transparency, which
-    // the backend reads as the mask.
-    const lend = () => {
-      if (!imageW.value || imageW.value === "none" || !img.complete || !img.naturalWidth) return false;
-      node.imgs = [img];
-      return true;
-    };
-    const takeBack = (delay) => setTimeout(() => { if (node.imgs && node.imgs[0] === img) node.imgs = undefined; }, delay);
-    const origMenu = node.getExtraMenuOptions;
-    node.getExtraMenuOptions = function (canvas, options) {
-      const lent = lend();
-      let r;
-      try { r = origMenu ? origMenu.apply(this, arguments) : undefined; }
-      finally { if (lent) takeBack(0); }
-      if (lent && Array.isArray(options)) {
-        for (const o of options) {
-          if (o && typeof o.content === "string" && o.content.startsWith("Open in MaskEditor")) {
-            const cb = o.callback;
-            o.callback = function () {
-              if (lend()) { takeBack(8000); }
-              return cb?.apply(this, arguments);
-            };
-          }
-        }
-      }
-      return r;
-    };
-    // Right-click on the picture (a DOM element) doesn't reach the canvas, so open the node menu ourselves.
-    stage.addEventListener("contextmenu", (e) => {
-      e.preventDefault(); e.stopPropagation();
-      try { app.canvas.processContextMenu(node, e); } catch (err) { console.warn("bbox: context menu", err); }
-    });
-    // The editor swaps the image for the painted one (a new file name): pick that up.
-    let seenImage = imageW.value;
-    const drawFg = node.onDrawForeground;
-    node.onDrawForeground = function () {
-      const pv = node.widgets?.findIndex((w) => w.name === "$$canvas-image-preview");
-      if (pv >= 0) { // the core adds its own preview widget after a save; ours is the picture
-        node.widgets.splice(pv, 1);
-        node.imgs = undefined;
-        setTimeout(() => { try { node.setSize([node.size[0], node.computeSize()[1]]); node.setDirtyCanvas(true, true); } catch { /* ignore */ } }, 0);
-      }
-      if (node.imgs && node.imgs[0] !== img) node.imgs = undefined; // the editor leaves its own preview behind: we show the picture ourselves
-      if (imageW.value !== seenImage) { seenImage = imageW.value; refreshImage(); notifyChange(100); }
-      return drawFg?.apply(this, arguments);
-    };
-
     const origConfigure = node.onConfigure;
     node.onConfigure = function () {
       const r = origConfigure ? origConfigure.apply(this, arguments) : undefined;
@@ -468,13 +305,15 @@ app.registerExtension({
     };
 
     const sz = node.computeSize();
-    node.setSize([Math.max(sz[0], 420), Math.max(sz[1], 520)]);
+    node.setSize([Math.max(node.size?.[0] ?? 0, 420), Math.max(node.size?.[1] ?? 0, sz[1])]);
     restore();
   },
 });
 
+
 // Settings live in a popup opened by a gear button at the top right of the node, so the node stays small.
-const SETTINGS = ["max_megapixels", "mask_mode", "mask_grow", "mask_feather"];
+const SETTINGS = ["max_megapixels"];
+const LEGACY = ["mask_mode", "mask_grow", "mask_feather"]; // unused by the backend now; kept so saved workflows load
 const LABELS = {
   max_megapixels: ["Max megapixels", "Image is downscaled to this size (sides snap to 16)"],
   mask_mode: ["Mask from", "boxes + masks, boxes only, masks only, or the whole image"],
@@ -486,7 +325,40 @@ const BTN = 22; // gear hit box, px
 function hideSettings(node, resize) {
   const before = node.computeSize()[1];
   for (const w of node.widgets || []) {
-    if (SETTINGS.includes(w.name)) { w.hidden = true; w.computeSize = () => [0, -4]; }
+    if (SETTINGS.includes(w.name) || LEGACY.includes(w.name)) { w.hidden = true; w.computeSize = () => [0, -4]; }
+  }
+  const delta = node.computeSize()[1] - before;
+  if (resize && delta) node.setSize([node.size[0], Math.max(120, node.size[1] + delta)]);
+  node.setDirtyCanvas?.(true, true);
+}
+
+// One or the other: the box editor (default) or the plain prompt box. The choice lives in node.properties.show_prompt
+// so it is saved with the workflow.
+function applyView(node, resize) {
+  const showPrompt = !!node.properties?.show_prompt;
+  const before = node.computeSize()[1];
+  for (const w of node.widgets || []) {
+    if (w.name !== "prompt" && w.name !== "bbox_editor") continue;
+    if (!("__cs" in w)) w.__cs = Object.prototype.hasOwnProperty.call(w, "computeSize") ? w.computeSize : null;
+    if (w.name === "bbox_editor") { // the picture stays; only its editing controls go
+      w.hidden = false;
+      if (w.__cs) w.computeSize = w.__cs; else delete w.computeSize;
+      const el0 = w.element || w.inputEl;
+      if (el0 && el0.style) el0.style.display = "";
+      node.__bblSetMode?.(showPrompt);
+      continue;
+    }
+    const hide = !showPrompt;
+    if (hide && w.value) { // hidden prompt text must not keep reaching the boxes (it is added to every box's prompt)
+      w.value = "";
+      const t = w.element || w.inputEl;
+      if (t && "value" in t) t.value = "";
+    }
+    w.hidden = hide;
+    if (hide) w.computeSize = () => [0, -4];
+    else if (w.__cs) w.computeSize = w.__cs; else delete w.computeSize;
+    const el = w.element || w.inputEl;
+    if (el && el.style) el.style.display = hide ? "none" : "";
   }
   const delta = node.computeSize()[1] - before;
   if (resize && delta) node.setSize([node.size[0], Math.max(120, node.size[1] + delta)]);
@@ -519,6 +391,19 @@ function showSettings(node) {
   const x = document.createElement("button");
   x.textContent = "\u2715"; x.style.cssText = "background:none;border:0;color:#ddd;cursor:pointer;font-size:14px";
   x.onclick = closePanel; head.appendChild(x); panel.appendChild(head);
+
+  const trow = document.createElement("label");
+  trow.style.cssText = "display:flex;align-items:center;gap:8px;margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid #444;cursor:pointer";
+  const tcb = document.createElement("input"); tcb.type = "checkbox"; tcb.checked = !!node.properties?.show_prompt;
+  const ttx = document.createElement("span"); ttx.textContent = "Show prompt box instead of boxes";
+  trow.title = "On: a plain prompt box, the box editor is hidden. Off: draw and prompt boxes (the prompt box is hidden).";
+  tcb.onchange = () => {
+    node.properties = node.properties || {};
+    node.properties.show_prompt = tcb.checked;
+    applyView(node, true);
+    notifyChange(100);
+  };
+  trow.append(tcb, ttx); panel.appendChild(trow);
 
   for (const name of SETTINGS) {
     const w = node.widgets?.find((v) => v.name === name);
@@ -595,8 +480,9 @@ app.registerExtension({
     node.onConfigure = function () {
       const r = cfg?.apply(this, arguments);
       hideSettings(this, false); // saved size already excludes them
+      applyView(this, false);
       return r;
     };
-    setTimeout(() => hideSettings(node, true), 0);
+    setTimeout(() => { hideSettings(node, true); applyView(node, true); }, 0);
   },
 });

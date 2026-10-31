@@ -225,3 +225,33 @@ def plan_inpaint(height, width, box=None, inpaint=None, scale="auto", edge_size=
             alpha = alpha * paste_crop
     return {"rect": rect, "crop_size": (cw, ch), "proc_size": (pw, ph), "weight": weight,
             "alpha": alpha.astype("float32"), "masked": m is not None}
+
+
+FILL_MODES = ["grey", "blurred", "keep"]
+
+
+def blank_reference(img, area, fill="grey", expand=16):
+    """Hide what is about to be replaced from an edit model's reference picture.
+
+    img:  HxWx3 float32 0..1.   area: HxW float 0..1 (1 = the part that will be repainted), or None.
+    fill: 'grey' = flat mid grey; 'blurred' = a very blurry copy (keeps the rough colours and layout, loses detail);
+          'keep' = untouched.   expand: grow the area by this many px and feather its edge.
+    Returns a new HxWx3 float32 image."""
+    from PIL import ImageFilter
+
+    if area is None or fill == "keep" or float(np.max(area)) <= 0.001:
+        return img
+    h, w = area.shape
+    m = Image.fromarray(((area > 0.001) * 255).astype("uint8"), "L")
+    if expand > 0:
+        m = m.filter(ImageFilter.MaxFilter(2 * int(expand) + 1))
+        m = m.filter(ImageFilter.GaussianBlur(max(1.0, expand / 3.0)))
+    mk = np.asarray(m, dtype="float32")[:, :, None] / 255.0
+    if fill == "blurred":
+        small = Image.fromarray((np.clip(img, 0, 1) * 255).astype("uint8"), "RGB")
+        k = max(1, max(h, w) // 24)
+        small = small.resize((max(1, w // k), max(1, h // k)), Image.BOX).resize((w, h), Image.BILINEAR)
+        base = np.asarray(small, dtype="float32") / 255.0
+    else:
+        base = np.full_like(img, 0.5)
+    return (img * (1.0 - mk) + base * mk).astype("float32")

@@ -48,6 +48,8 @@ No subscription, licence or account of any kind. A Civitai API key is optional (
   - per-LoRA cards: preview, trigger words (click to copy), strengths, stats, description, tags,
     licence, other versions, example-image prompts, 📌 Pin, "Check still exists", warnings
     (different base model, removed from Civitai).
+- **Every Civitai model type is accepted and treated as a LoRA.** If an uploader tagged a LoRA as Checkpoint, Other, etc., it still saves and loads
+  (the original tag stays on the card as a chip). The vault search has an **all types** checkbox that lifts the LoRA-only filter.
 - The node outputs `model`, `clip`, `trigger_words` and a `loaded` summary. Text format is
   `<lora:v12345:0.8>` or `<lora:v12345:0.8:0.6>` (model:clip); names and file names also work.
 - Each card has **one strength** (step 0.05) that applies to both model and clip. The **⚙ cog** holds the
@@ -120,3 +122,7 @@ drag a box over several (Ctrl/Shift-drag adds to the selection). **Select all sh
 search / base-model / category filter shows, which is how you remove a whole category. **Remove selected…** removes
 every saved version of each picked model and asks whether to delete the downloaded files too (pinned items are called
 out). In a model's detail view, **Remove all versions** does the same for just that model. Esc leaves select mode.
+
+## Load LoRA (layers, model only)
+
+A small companion node for LoRAs already in `models/loras`: pick the file, a strength, and `start_layer` / `end_layer` (inclusive, `-1` = to the end). Fused qkv LoRAs are split automatically, same as the vault loader.

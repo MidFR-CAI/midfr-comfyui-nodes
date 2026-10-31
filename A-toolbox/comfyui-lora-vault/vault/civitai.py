@@ -261,8 +261,11 @@ def get_base_models() -> list:
 def search_models(query: str = "", base_model: str = "", sort: str = "Most Downloaded",
                   period: str = "AllTime", nsfw: bool = False, cursor: str = "",
                   limit: int = 20, types: str = "LORA") -> dict:
-    """Search Civitai LoRAs. `query` can't be combined with page=, so we page by cursor."""
-    p = [("types", types), ("limit", str(max(1, min(int(limit), 50)))), ("sort", sort), ("period", period)]
+    """Search Civitai LoRAs. `query` can't be combined with page=, so we page by cursor.
+    types="" or "all" searches every model type (for LoRAs the uploader tagged as something else)."""
+    p = [("limit", str(max(1, min(int(limit), 50)))), ("sort", sort), ("period", period)]
+    if types and types.lower() != "all":
+        p.insert(0, ("types", types))
     if query:
         p.append(("query", query))
     if base_model:

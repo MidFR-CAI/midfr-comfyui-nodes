@@ -3,6 +3,7 @@ from PIL import Image
 import numpy as np
 import folder_paths
 import os
+import re
 import sys
 
 
@@ -16,6 +17,21 @@ def _custom_nodes_dir():
         if parent == d:
             return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         d = parent
+
+
+_LABEL_RE = re.compile(
+    r"^\s*(?:(?:here(?:'s| is)|sure[,!]?)[^\n:]{0,60}:\s*|[*#_ ]*(?:qwen\s+)?(?:natural[- ]language\s+)?(?:caption|description|image description)[*_ ]*:[*_ ]*)+",
+    re.I)
+
+
+def _clean_caption(text):
+    """Strip a leading label the model adds ('Qwen Caption:', 'Caption:', 'Here is the caption:') and wrapping quotes."""
+    if not text:
+        return text
+    t = _LABEL_RE.sub("", text.strip()).strip()
+    if len(t) > 1 and t[0] == t[-1] and t[0] in "\"'":
+        t = t[1:-1].strip()
+    return t or text.strip()
 
 
 class HybridTaggingNode:
@@ -86,13 +102,14 @@ class HybridTaggingNode:
         if tagging_mode in ["qwen_vl", "both", "hybrid"]:
             print("Running Qwen3-VL...")
             if tagging_mode == "hybrid" and wd_tags:
-                qwen_prompt = f"Create a natural-language caption based on these tags: {wd_tags}. Describe the image in detail."
+                qwen_prompt = f"Create a natural-language caption based on these tags: {wd_tags}. Describe the image in detail. Output only the caption text as one plain paragraph, with no label or heading."
             else:
-                qwen_prompt = "Describe this image in detail."
+                qwen_prompt = "Describe this image in detail. Output only the description text, with no label or heading."
                 
             qwen_caption = self.run_qwen_vl(pil_image, qwen_prompt, system_prompt, 
                                           qwen_model, qwen_temperature, 
                                           qwen_max_new_tokens, qwen_seed, device)
+            qwen_caption = _clean_caption(qwen_caption)
             print(f"Qwen caption: {qwen_caption[:100]}...")
         
         # Create combined output

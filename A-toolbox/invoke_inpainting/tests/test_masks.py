@@ -150,3 +150,24 @@ class PlanTests(unittest.TestCase):
         box = np.zeros((128, 128), "float32"); box[:64, :64] = 1
         p = masks.plan_inpaint(128, 128, box=box, inpaint=np.zeros((128, 128), "float32"))
         self.assertFalse(p["masked"])
+
+
+class BlankReferenceTests(unittest.TestCase):
+    def setUp(self):
+        self.img = np.zeros((128, 128, 3), "float32"); self.img[:, :, 0] = 0.9
+        self.area = np.zeros((128, 128), "float32"); self.area[40:80, 40:80] = 1
+
+    def test_grey_blanks_the_area_and_leaves_the_rest(self):
+        out = masks.blank_reference(self.img, self.area, "grey", 8)
+        self.assertAlmostEqual(float(out[60, 60, 0]), 0.5, places=3)   # centre: flat grey
+        self.assertAlmostEqual(float(out[5, 5, 0]), 0.9, places=3)     # far away: untouched
+        self.assertTrue(0.5 < float(out[36, 60, 0]) < 0.9)             # just outside the box: feathered
+
+    def test_blurred_keeps_rough_colour(self):
+        out = masks.blank_reference(self.img, self.area, "blurred", 0)
+        self.assertAlmostEqual(float(out[60, 60, 0]), 0.9, places=1)
+
+    def test_keep_and_empty_area_are_no_ops(self):
+        self.assertTrue(np.array_equal(masks.blank_reference(self.img, self.area, "keep", 8), self.img))
+        self.assertTrue(np.array_equal(masks.blank_reference(self.img, np.zeros_like(self.area), "grey", 8), self.img))
+        self.assertTrue(np.array_equal(masks.blank_reference(self.img, None, "grey", 8), self.img))

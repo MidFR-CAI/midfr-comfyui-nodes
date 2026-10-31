@@ -105,7 +105,7 @@ class VaultPanel {
     this.mode = "loaded"; // loaded | search | saved
     this.expanded = new Set();
     this.progress = {};
-    this.search = { q: "", sort: SORTS[0], nsfw: false, items: [], local: [], cursor: null, loading: false, error: "" };
+    this.search = { q: "", sort: SORTS[0], nsfw: false, alltypes: false, items: [], local: [], cursor: null, loading: false, error: "" };
     this.saved = { q: "", items: [] };
     this.blur = ls.get("blur", true);
     this.lastText = null;
@@ -169,11 +169,14 @@ class VaultPanel {
 
   // -------- text <-> tags
   get text() { return this.tw.value || ""; }
-  setText(t) {
+  // quiet = the edit changes nothing the server would tell us (a strength): skip the round trip and the redraw, so
+  // clicking the arrows is instant and the field keeps focus.
+  setText(t, quiet) {
     this.tw.value = t;
     if (this.tw.inputEl) this.tw.inputEl.value = t;
     if (this.tw.callback) this.tw.callback(t);
     app.graph && app.graph.setDirtyCanvas(true, true);
+    if (quiet) { this.lastText = t; return; }
     this.refresh();
   }
   mutate(fn) {
@@ -187,7 +190,8 @@ class VaultPanel {
     this.setText((this.text.trimEnd() + "\n" + tag).trim());
   }
   setStrength(idx, it, s, c) {
-    this.setText(this.mutate((i, m) => (i === idx ? fmtTag(it.ref, s, c, it.layer_start, it.layer_end) : m)));
+    it.strength = s; it.clip_strength = c;
+    this.setText(this.mutate((i, m) => (i === idx ? fmtTag(it.ref, s, c, it.layer_start, it.layer_end) : m)), true);
   }
   setLayers(idx, it, a, b) {
     this.setText(this.mutate((i, m) => (i === idx ? fmtTag(it.ref, it.strength, it.clip_strength, a, b) : m)));
@@ -201,11 +205,15 @@ class VaultPanel {
   async refresh() {
     const text = this.text;
     this.lastText = text;
+    const seq = this._seq = (this._seq || 0) + 1;
+    let items;
     try {
-      this.items = (await call("/resolve", "POST", { text })).items;
+      items = (await call("/resolve", "POST", { text })).items;
     } catch (e) {
-      this.items = [{ ok: false, ref: "?", error: "Can't reach the vault server: " + e.message }];
+      items = [{ ok: false, ref: "?", error: "Can't reach the vault server: " + e.message }];
     }
+    if (seq !== this._seq) return; // a newer edit is already on its way: don't let this older answer roll the card back
+    this.items = items;
     this.render();
     this.fetchVersionLists();
   }
@@ -217,7 +225,9 @@ class VaultPanel {
       this.fetchedModels.add(v.model_id);
       try { await call("/model_versions/" + v.model_id); delete this.verErr[v.model_id]; }
       catch (e) { this.verErr[v.model_id] = e.message; }
-      try { this.items = (await call("/resolve", "POST", { text: this.text })).items; } catch (_) { /* keep old */ }
+      const seq = this._seq;
+      try { const r = await call("/resolve", "POST", { text: this.text }); if (seq === this._seq) this.items = r.items; } catch (_) { /* keep old */ }
+      if (seq !== this._seq) return;
       this.render();
     }
   }
@@ -534,7 +544,7 @@ class VaultPanel {
       this.render();
     }
     try {
-      const p = new URLSearchParams({ q: s.q, sort: s.sort, nsfw: s.nsfw ? "1" : "0" });
+      const p = new URLSearchParams({ q: s.q, sort: s.sort, nsfw: s.nsfw ? "1" : "0", types: s.alltypes ? "all" : "LORA" });
       if (this.base) p.set("base", this.base);
       if (!reset && s.cursor) p.set("cursor", s.cursor);
       const r = await call("/search?" + p);
@@ -549,7 +559,8 @@ class VaultPanel {
     const s = this.search;
     const ctl = h("div", { class: "lv-row" },
       h("select", { onchange: (e) => { s.sort = e.target.value; this.runSearch(true); } }, ...SORTS.map((x) => h("option", { value: x, selected: x === s.sort }, x))),
-      h("label", { class: "lv-row" }, h("input", { type: "checkbox", checked: s.nsfw, onchange: (e) => { s.nsfw = e.target.checked; this.runSearch(true); } }), "mature"),);
+      h("label", { class: "lv-row" }, h("input", { type: "checkbox", checked: s.nsfw, onchange: (e) => { s.nsfw = e.target.checked; this.runSearch(true); } }), "mature"),
+      h("label", { class: "lv-row", title: "Also list models Civitai tags as Checkpoint/Other etc. Anything you add is loaded as a LoRA" }, h("input", { type: "checkbox", checked: s.alltypes, onchange: (e) => { s.alltypes = e.target.checked; this.runSearch(true); } }), "all types"),);
     // order: pinned, then saved, then everything else on Civitai that matches
     const local = s.local || [];
     const pinned = local.filter((v) => v.local === "pinned" || v.pinned), saved = local.filter((v) => !(v.local === "pinned" || v.pinned));

@@ -99,6 +99,7 @@ textarea.notes{width:100%;min-height:54px}
   <span class="s" id="helper" title="The Firefox extension fetches everything from Civitai for ComfyUI"></span>
   <span class="s" id="usage"></span>
   <button id="selBtn" title="Pick several LoRAs (click, shift-click, or drag a box) and remove them in one go">Select…</button>
+  <button id="syncCol" title="Sync your pins with the <Username>-Vault collection on Civitai">Sync collections</button>
   <button id="checkAll" title="Re-check every saved model against Civitai now">Check all now</button>
   <button id="settingsBtn">Settings</button>
 </header>
@@ -137,6 +138,7 @@ textarea.notes{width:100%;min-height:54px}
   <label class="f">Preview images kept on disk for UNPINNED LoRAs (all text metadata is always kept)<input id="s_unp" type="number" min="0" max="12"></label>
   <label class="f">Preview images kept on disk for PINNED LoRAs (pinning also saves every example's prompt/steps/sampler, descriptions, and a self-contained export next to the weights)<input id="s_pin" type="number" min="1" max="60"></label>
   <label class="f">Check for removed models every N hours (0 = never)<input id="s_int" type="number" min="0"></label>
+  <label class="s"><input type="checkbox" id="s_syncCol"> Back up my pins to a Civitai collection &lt;Username&gt;-Vault, and restore from it (runs with the daily check)</label>
   <label class="s"><input type="checkbox" id="s_autopin"> Auto-pin cached weights if a model disappears from Civitai</label>
   <p class="s">Extension server port changes take effect after restarting ComfyUI.</p>
   <div class="row" style="justify-content:flex-end"><button id="s_cancel">Close</button><button class="pri" id="s_save">Save</button></div>
@@ -575,6 +577,15 @@ $("#blurMature").onchange = async (e) => {
   render(); if ($("#detail").open) renderDetail();
 };
 $("#checkAll").onclick = async () => { await call("/check_all", "POST", {}); notice("Checking all saved models in the background (about 1.5 s each). Results appear under History."); };
+$("#syncCol").onclick = async () => {
+  await call("/sync_collections", "POST", {}); notice("Syncing your Civitai collections in the background…");
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const c = (await call("/jobs")).collections;
+    if (c.running) { notice(`Collections: ${c.done}/${c.total}`); continue; }
+    notice(c.errors.length ? "Collection sync problems: " + c.errors.slice(0, 3).join(" | ") : "Collections synced: " + c.summary, !!c.errors.length); break;
+  }
+};
 $("#dClose").onclick = () => $("#detail").close();
 $("#detail").addEventListener("close", () => { openVid = null; load(); });
 $("#detail").addEventListener("click", (e) => { if (e.target === $("#detail")) $("#detail").close(); });
@@ -589,7 +600,7 @@ $("#settingsBtn").onclick = async () => {
   $("#s_key").value = ""; $("#keyHint").textContent = s.has_api_key ? `A key is saved (${s.api_key_hint}). Leave blank to keep it.` : "No API key set - fine if you're logged in to Civitai in Firefox.";
   $("#s_hosts").value = s.civitai_hosts.join("\n"); $("#s_dir").value = s.lora_dir; $("#s_transport").value = s.transport; $("#s_dlmode").value = s.download_mode || "direct"; $("#testOut").textContent = "";
   $("#s_cache").value = s.cache_limit_gb; $("#s_unp").value = s.unpinned_previews; $("#s_pin").value = s.pinned_previews;
-  $("#s_int").value = s.check_interval_hours; $("#s_autopin").checked = s.auto_pin_on_removal;
+  $("#s_int").value = s.check_interval_hours; $("#s_autopin").checked = s.auto_pin_on_removal; $("#s_syncCol").checked = s.sync_collections;
   $("#dlg").showModal();
 };
 $("#s_test").onclick = async () => {
@@ -602,7 +613,7 @@ $("#s_cancel").onclick = () => $("#dlg").close();
 $("#s_save").onclick = async () => {
   await call("/settings", "POST", { civitai_api_key: $("#s_key").value.trim(), civitai_hosts: $("#s_hosts").value, lora_dir: $("#s_dir").value, transport: $("#s_transport").value, download_mode: $("#s_dlmode").value,
     cache_limit_gb: parseFloat($("#s_cache").value) || 0, unpinned_previews: parseInt($("#s_unp").value) || 0, pinned_previews: parseInt($("#s_pin").value) || 40,
-    check_interval_hours: parseInt($("#s_int").value) || 0, auto_pin_on_removal: $("#s_autopin").checked });
+    check_interval_hours: parseInt($("#s_int").value) || 0, auto_pin_on_removal: $("#s_autopin").checked, sync_collections: $("#s_syncCol").checked });
   $("#dlg").close(); notice("Settings saved."); load();
 };
 

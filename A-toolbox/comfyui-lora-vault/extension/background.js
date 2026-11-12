@@ -114,7 +114,11 @@ async function handle(t) {
     if (t.kind === "resolve") {
       await handleResolve(t);
     } else if (t.kind === "json") {
-      const r = await timedFetch(t.url, { headers: t.headers || {}, credentials: "include" });
+      const init = { headers: t.headers || {}, credentials: "include" };
+      if (t.body !== undefined) { // POST (collection changes)
+        init.method = "POST"; init.headers = { ...init.headers, "Content-Type": "application/json" }; init.body = JSON.stringify(t.body);
+      }
+      const r = await timedFetch(t.url, init);
       await post("/relay/result", { id: t.id, ok: true, status: r.status, body: await r.text() });
     } else if (t.kind === "bytes") {
       const r = await timedFetch(t.url, { headers: t.headers || {}, credentials: "include" });

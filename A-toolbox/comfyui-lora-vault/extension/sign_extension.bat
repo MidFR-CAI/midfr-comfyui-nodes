@@ -4,7 +4,7 @@ rem PERMANENTLY in normal Firefox. Needs Node.js and AMO API keys:
 rem   https://addons.mozilla.org/developers/addon/api/key/
 rem Usage:  sign_extension.bat  YOUR_JWT_ISSUER  YOUR_JWT_SECRET
 if "%~2"=="" (
-  echo Usage: sign_extension.bat JWT_ISSUER JWT_SECRET
+  echo Usage: sign_extension.bat YOUR_JWT_ISSUER  YOUR_JWT_SECRET
   exit /b 1
 )
 cd /d "%~dp0"

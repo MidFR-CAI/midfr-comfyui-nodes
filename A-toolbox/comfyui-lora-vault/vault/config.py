@@ -6,6 +6,7 @@ your library, previews or API key.
 """
 import json
 import os
+import re
 import threading
 
 VERSION = "0.1.0"
@@ -30,6 +31,8 @@ DEFAULTS = {
     "check_interval_hours": 24,
     # If a saved model disappears and we have the file cached, pin it automatically.
     "auto_pin_on_removal": True,
+    # Mirror pins to a private Civitai collection '<Username>-Vault' (and restore from it). Needs the Firefox login.
+    "sync_collections": True,
     # Local preview images kept per LoRA. Unpinned: just a few (text metadata - descriptions,
     # trigger words, every example's prompt/steps/sampler - is always kept). Pinned: everything.
     "unpinned_previews": 1,
@@ -141,8 +144,9 @@ def cache_dir() -> str:
     return d
 
 
-def pinned_dir() -> str:
-    d = os.path.join(lora_root(), "_vault", "pinned")
+def pinned_dir(base_model: str) -> str:
+    """Pinned weights live in <loras>/<Base Model>/ (never evicted)."""
+    d = os.path.join(lora_root(), re.sub(r'[<>:"/\|?*\x00-\x1f]+', "_", base_model or "").strip(" .") or "Other")
     os.makedirs(d, exist_ok=True)
     return d
 

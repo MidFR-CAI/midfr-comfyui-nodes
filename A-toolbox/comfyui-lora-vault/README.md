@@ -85,13 +85,25 @@ No subscription, licence or account of any kind. A Civitai API key is optional (
 
 Unpinning removes the export and trims previews back. A refresh never deletes previews you already have.
 
+## Collections backup (`<Username>-Vault - <Base Model>`)
+
+Private Civitai collections, one per base model (like the local folders), mirror your pins. Needs the Firefox login,
+your API key and extension 0.4.2. It syncs after each daily check, or press **Sync collections** on the vault page:
+
+- pinned here, not in its collection → added (the collection is created if needed)
+- unpinned or removed here since the last sync → removed from the collection
+- in a collection, not here (fresh install, or pinned on another PC) → saved and pinned here, in `<loras folder>/<Base Model>/`
+
+The single `<Username>-Vault` collection from earlier versions is emptied into the per-base ones. After reinstalling
+ComfyUI, log in and run the vault again to get every pin back. Turn it off in Settings (`sync_collections`).
+
 ## Where things live
 
 | What | Where |
 |---|---|
 | Library, settings, previews, removal backups | `ComfyUI/user/lora_vault/` |
 | Download cache (evicted oldest-first past the cap) | `<loras folder>/_vault/cache/` |
-| Pinned weights (kept forever) | `<loras folder>/_vault/pinned/` |
+| Pinned weights (kept forever) | `<loras folder>/<Base Model>/<LoRA name>.safetensors` (existing pins are moved there when ComfyUI starts) |
 
 ## Notes & limits
 

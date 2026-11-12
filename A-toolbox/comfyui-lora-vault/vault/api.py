@@ -9,7 +9,7 @@ import threading
 
 from aiohttp import web
 
-from . import checker, civitai, config, db, parse, relay, snapshot, storage
+from . import checker, civitai, collection_sync, config, db, parse, relay, snapshot, storage
 
 
 async def run(fn, *a, **kw):
@@ -348,11 +348,23 @@ async def status(request):
 async def jobs(request):
     return web.json_response({"jobs": {str(k): v for k, v in storage.jobs.items()},
                               "bulk": {str(k): v for k, v in bulk.items()},
+                              "collections": collection_sync.state,
                               "check": {"running": checker.scheduler.running_now, **checker.scheduler.progress}})
 
 
 async def check_all(request):
     checker.scheduler.trigger_now()
+    return web.json_response({"ok": True})
+
+
+async def sync_collections(request):
+    def work():
+        try:
+            collection_sync.sync()
+        except Exception as e:
+            collection_sync.state["errors"].append(str(e) or e.__class__.__name__)
+    collection_sync.state.update(running=True, done=0, total=0, errors=[])
+    threading.Thread(target=work, daemon=True).start()
     return web.json_response({"ok": True})
 
 
@@ -486,7 +498,7 @@ def table(prefix: str):
         ("GET", f"{P}/version/{{vid}}", version), ("GET", f"{P}/model_versions/{{mid}}", model_versions), ("POST", f"{P}/resolve", resolve),
         ("POST", f"{P}/save", save), ("GET", f"{P}/save_job/{{job}}", save_job), ("POST", f"{P}/save_model", save_model),
         ("POST", f"{P}/refresh_previews", refresh_previews), ("GET", f"{P}/status", status), ("GET", f"{P}/jobs", jobs),
-        ("POST", f"{P}/check_all", check_all), ("POST", f"{P}/remove_many", remove_many), ("GET", f"{P}/events", events), ("GET", f"{P}/relay/next", relay_next),
+        ("POST", f"{P}/check_all", check_all), ("POST", f"{P}/sync_collections", sync_collections), ("POST", f"{P}/remove_many", remove_many), ("GET", f"{P}/events", events), ("GET", f"{P}/relay/next", relay_next),
         ("POST", f"{P}/relay/result", relay_result), ("POST", f"{P}/relay/progress", relay_progress),
         ("GET", f"{P}/relay/status", relay_status), ("POST", f"{P}/test_connection", test_connection), ("GET", f"{P}/usage", usage),
         ("GET", f"{P}/settings", get_settings), ("POST", f"{P}/settings", post_settings),

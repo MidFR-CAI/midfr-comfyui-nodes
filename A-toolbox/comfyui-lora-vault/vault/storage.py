@@ -2,7 +2,7 @@
 
 Layout (inside your loras folder, so other loader nodes can see these files too):
   loras/_vault/cache/   - downloaded on demand, evicted oldest-used-first past the size cap
-  loras/_vault/pinned/  - never evicted (your permanent backups)
+  loras/<Base Model>/   - pinned: never evicted (your permanent backups)
 """
 import hashlib
 import os
@@ -54,14 +54,16 @@ def _unique_path(dest_dir: str, rec: dict) -> str:
     return path
 
 
-def rename_local(rec: dict):
-    """Give an existing file (and its export next to it) the readable name. Best effort."""
+def rename_local(rec: dict, dest_dir: str = None):
+    """Give an existing file (and its export next to it) the readable name, optionally in another folder. Best effort."""
     p = rec.get("local_path")
     if not p or not os.path.isfile(p):
         return
-    new = _unique_path(os.path.dirname(p), rec)
+    dest_dir = dest_dir or os.path.dirname(p)
+    new = _unique_path(dest_dir, rec)
     if os.path.abspath(new) == os.path.abspath(p):
         return
+    os.makedirs(dest_dir, exist_ok=True)
     old_base, new_base = os.path.splitext(p)[0], os.path.splitext(new)[0]
     os.replace(p, new)
     for suffix in (".vault.json", ".txt", ".previews"):
@@ -275,16 +277,16 @@ def _ensure_local(vid: int, pin: bool = False, progress=None, protect=()) -> str
         if state != "none":
             path = rec["local_path"]
             if pin and not rec["pinned"]:
-                path = _move(rec, config.pinned_dir())
-                db.set_fields(vid, pinned=1, local_path=path)
+                rename_local(rec, config.pinned_dir(rec["base_model"]))
+                db.set_fields(vid, pinned=1)
+                path = db.get_version(vid)["local_path"]
             touch_used(vid)
             return path
         if rec["status"] in ("removed", "archived", "taken_down", "unpublished"):
             raise Unavailable(
                 f"'{rec['model_name']}' was removed from Civitai ({rec['status']}) and no local copy was kept."
             )
-        dest_dir = config.pinned_dir() if pin else config.cache_dir()
-        dest = _unique_path(dest_dir, rec)
+        dest = _unique_path(config.pinned_dir(rec["base_model"]) if pin else config.cache_dir(), rec)
         jobs[vid] = {"state": "downloading", "done": 0, "total": 0, "error": None, "name": rec["model_name"]}
 
         def prog(done, total):
@@ -324,7 +326,7 @@ def import_file(vid: int, path: str, pin: bool = False) -> str:
         expected = (rec.get("sha256") or "").upper()
         if expected and _sha256_file(path) != expected:
             raise Unavailable("That file doesn't match this version's SHA-256 - it is a different or damaged file.")
-        dest = _unique_path(config.pinned_dir() if pin else config.cache_dir(), rec)
+        dest = _unique_path(config.pinned_dir(rec["base_model"]) if pin else config.cache_dir(), rec)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         shutil.move(path, dest)
         jobs.pop(vid, None)
@@ -431,7 +433,7 @@ def reconcile():
         if p and not os.path.isfile(p):
             db.set_fields(r["version_id"], local_path=None)
         elif p:
-            try:  # older downloads were saved as '<number>__file.safetensors'
-                rename_local(r)
+            try:  # older downloads were saved as '<number>__file.safetensors'; pinned ones are filed under their base model
+                rename_local(r, config.pinned_dir(r["base_model"]) if r["pinned"] else None)
             except Exception:
                 pass

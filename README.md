@@ -2,8 +2,6 @@
 
 Three small packs of custom [ComfyUI](https://github.com/comfyanonymous/ComfyUI) nodes: everyday workflow tools, dataset tagging, and MiniMax H3 prompt building.
 
-> **Is this safe?** Yes, and you don't have to take my word for it: it's 100% plain-text Python and JavaScript, no compiled files, no installers, no obfuscation. See [SECURITY.md](SECURITY.md) for exactly what each pack touches (files, network, processes) and how to check it yourself in 5 minutes.
-
 | Pack | Name | Nodes |
 |---|---|---|
 | **A** | [Toolbox](A-toolbox) | 12 across 8 tools |

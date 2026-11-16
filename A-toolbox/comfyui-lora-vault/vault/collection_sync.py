@@ -71,7 +71,7 @@ def sync():
         for mid in to_restore:
             try:
                 for r in db.versions_for_model(mid) or [snapshot.save_version(model_id=mid)]:
-                    storage.pin(r["version_id"])
+                    storage.mark_pinned(r["version_id"])
                     synced.add((r["base_model"] or "Other", mid))
             except Exception as e:
                 _fail(f"restore {mid}", e)

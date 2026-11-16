@@ -267,7 +267,7 @@ def collection_model_ids(collection_id: int) -> list:
     ids, cursor = [], None
     while True:
         data = _trpc("model.getAll", {"collectionId": collection_id, "limit": 100, "period": "AllTime",
-                                      "sort": "Newest", "browsingLevel": 31, "cursor": cursor})
+                                      "sort": "Newest", "browsingLevel": 31, **({"cursor": cursor} if cursor else {})})
         ids += [m["id"] for m in data.get("items", [])]
         cursor = data.get("nextCursor")
         if not cursor:

@@ -273,6 +273,7 @@ def _ensure_local(vid: int, pin: bool = False, progress=None, protect=()) -> str
         rec = db.get_version(vid)
         if not rec:
             raise Unavailable(f"Version {vid} is not in the vault.")
+        pin = pin or rec["pinned"]  # a pinned version whose weights aren't here yet downloads straight into its pinned folder
         state = local_state(rec)
         if state != "none":
             path = rec["local_path"]
@@ -338,6 +339,16 @@ def import_file(vid: int, path: str, pin: bool = False) -> str:
 
 def pin(vid: int, progress=None) -> str:
     return ensure_local(vid, pin=True, progress=progress)
+
+
+def mark_pinned(vid: int):
+    """Pin without downloading: the weights come on first use and then stay. Keeps metadata + previews now."""
+    rec = db.get_version(vid)
+    if local_state(rec) != "none":
+        ensure_local(vid, pin=True)
+    elif not rec["pinned"]:
+        db.set_fields(vid, pinned=1)
+        _policy(vid)
 
 
 def unpin(vid: int):

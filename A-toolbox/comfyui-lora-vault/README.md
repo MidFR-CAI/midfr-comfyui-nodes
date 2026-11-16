@@ -92,7 +92,7 @@ your API key and extension 0.4.2. It syncs after each daily check, or press **Sy
 
 - pinned here, not in its collection → added (the collection is created if needed)
 - unpinned or removed here since the last sync → removed from the collection
-- in a collection, not here (fresh install, or pinned on another PC) → saved and pinned here, in `<loras folder>/<Base Model>/`
+- in a collection, not here (fresh install, or pinned on another PC) → saved and marked pinned here (no download; the weights download on first use into `<loras folder>/<Base Model>/` and stay)
 
 The single `<Username>-Vault` collection from earlier versions is emptied into the per-base ones. After reinstalling
 ComfyUI, log in and run the vault again to get every pin back. Turn it off in Settings (`sync_collections`).

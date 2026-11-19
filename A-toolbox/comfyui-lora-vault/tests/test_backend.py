@@ -108,7 +108,7 @@ def test_pin_unpin_and_eviction(env):
     assert removed == [111] and not os.path.exists(p1)
     # pinned files are never evicted
     storage.pin(111)
-    assert db.get_version(111)["pinned"] and os.sep + "pinned" + os.sep in db.get_version(111)["local_path"]
+    assert db.get_version(111)["pinned"] and os.sep + "SDXL 1.0" + os.sep in db.get_version(111)["local_path"]
     config.update({"cache_limit_gb": 0.000001})
     storage.evict()
     assert os.path.exists(db.get_version(111)["local_path"])
@@ -495,3 +495,14 @@ def test_remove_many_by_model_and_ids(env):
     assert db.get_version(111) is None and not os.path.exists(pdir), "previews must go too"
     r = asyncio.run(api.remove_many(Req({"version_ids": [222, 999999]})))
     assert json.loads(r.body)["removed"] <= 1 and db.get_version(222) is None
+
+
+def test_pin_without_download_then_first_use_downloads_into_base_model_folder(env):
+    fake, _ = env
+    checker, civitai, db, parse, snapshot, storage = mods()
+    from vault import api
+    vid = api._do_save({"version_id": 111, "pin": True})
+    rec = db.get_version(vid)
+    assert rec["pinned"] and storage.local_state(rec) == "none" and fake.cdn_auth_seen == []  # nothing downloaded
+    path = storage.ensure_local(vid)   # first use
+    assert os.sep + "SDXL 1.0" + os.sep in path and db.get_version(vid)["pinned"]

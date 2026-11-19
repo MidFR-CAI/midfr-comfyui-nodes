@@ -24,10 +24,41 @@ async function call({ path, method = "GET", body }) {
   return j;
 }
 
+// Saves made while ComfyUI isn't running are kept here and sent, oldest first, once the vault answers again.
+async function queued() { return (await ext.storage.local.get("queue")).queue || []; }
+async function enqueue(add) {
+  const q = await queued();
+  const same = q.find((x) => x.model_id === add.model_id && x.version_id === add.version_id);
+  if (same) { same.pin = same.pin || add.pin; same.download = same.download || add.download; }
+  else q.push(add);
+  await ext.storage.local.set({ queue: q });
+}
+let flushing = false;
+async function flushQueue() {
+  if (flushing) return;
+  flushing = true;
+  try {
+    for (let q = await queued(); q.length; q = await queued()) {
+      const { model_id, version_id, pin, download } = q[0];
+      const r = await call({ path: "/save", method: "POST", body: { model_id, version_id, pin, download } }).catch(() => null);
+      if (!r) return; // vault went away again: keep the rest for next time
+      if (!r.ok) { // Civitai refused this one (removed, restricted): drop it, but remember why
+        const f = (await ext.storage.local.get("failed")).failed || [];
+        f.push({ model_id, version_id, error: r.error || "failed" });
+        await ext.storage.local.set({ failed: f.slice(-20) });
+      }
+      await ext.storage.local.set({ queue: (await queued()).slice(1) });
+    }
+  } finally { flushing = false; }
+}
+
 ext.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg || msg.type !== "vault") return;
   startLoop();
-  call(msg).then(sendResponse, (e) => sendResponse({ ok: false, offline: true, error: String(e) }));
+  const offline = (e) => msg.method === "POST" && msg.path === "/save"
+    ? enqueue({ model_id: msg.body.model_id, version_id: msg.body.version_id, pin: !!msg.body.pin, download: !!msg.body.download }).then(() => ({ ok: true, queued: true }))
+    : { ok: false, offline: true, error: String(e) };
+  call(msg).then(sendResponse, (e) => Promise.resolve(offline(e)).then(sendResponse));
   return true; // async response
 });
 
@@ -43,6 +74,7 @@ async function startLoop() {
       const j = await r.json();
       backoff = 1000;
       if (j.task) handle(j.task); // run concurrently; keep polling
+      else flushQueue();          // the vault is up: send anything saved while it was away
     } catch (_) {
       await sleep(backoff);
       backoff = Math.min(backoff * 2, 15000);
@@ -114,11 +146,7 @@ async function handle(t) {
     if (t.kind === "resolve") {
       await handleResolve(t);
     } else if (t.kind === "json") {
-      const init = { headers: t.headers || {}, credentials: "include" };
-      if (t.body !== undefined) { // POST (collection changes)
-        init.method = "POST"; init.headers = { ...init.headers, "Content-Type": "application/json" }; init.body = JSON.stringify(t.body);
-      }
-      const r = await timedFetch(t.url, init);
+      const r = await timedFetch(t.url, { headers: t.headers || {}, credentials: "include" });
       await post("/relay/result", { id: t.id, ok: true, status: r.status, body: await r.text() });
     } else if (t.kind === "bytes") {
       const r = await timedFetch(t.url, { headers: t.headers || {}, credentials: "include" });

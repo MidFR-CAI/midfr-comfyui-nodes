@@ -31,8 +31,6 @@ DEFAULTS = {
     "check_interval_hours": 24,
     # If a saved model disappears and we have the file cached, pin it automatically.
     "auto_pin_on_removal": True,
-    # Mirror pins to a private Civitai collection '<Username>-Vault' (and restore from it). Needs the Firefox login.
-    "sync_collections": True,
     # Local preview images kept per LoRA. Unpinned: just a few (text metadata - descriptions,
     # trigger words, every example's prompt/steps/sampler - is always kept). Pinned: everything.
     "unpinned_previews": 1,

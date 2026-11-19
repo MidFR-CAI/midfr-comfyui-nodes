@@ -14,7 +14,7 @@ import os
 import threading
 import time
 
-from . import civitai, collection_sync, config, db, snapshot, storage
+from . import civitai, config, db, snapshot, storage
 
 BAD = {"possibly_removed", "removed", "archived", "taken_down", "unpublished"}
 
@@ -135,11 +135,6 @@ class Scheduler(threading.Thread):
                 self.progress["done"] += 1
                 time.sleep(1.5)
             db.set_meta("last_full_check", time.time())
-            if config.get("sync_collections"):
-                try:
-                    collection_sync.sync()
-                except civitai.CivitaiError as e:
-                    collection_sync.state["errors"].append(str(e))
         finally:
             self.running_now = False
 

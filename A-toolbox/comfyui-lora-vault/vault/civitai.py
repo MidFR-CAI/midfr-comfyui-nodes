@@ -203,78 +203,7 @@ def get_version_by_hash(h: str) -> dict:
     return _api(f"model-versions/by-hash/{urllib.parse.quote(h)}")
 
 
-def _account_host() -> str:
-    """Collections and the login live on civitai.red when it is configured, otherwise on the first host."""
-    hosts = config.get("civitai_hosts")
-    return next((h for h in hosts if "civitai.red" in h), hosts[0])
-
-
-def _trpc(proc: str, payload: dict):
-    url = f"{_account_host()}/api/trpc/{proc}?" + urllib.parse.urlencode({"input": json.dumps({"json": payload})})
-    try:
-        return _get_json(url)["result"]["data"]["json"]
-    except CivitaiError as e:
-        raise type(e)(f"{proc}: {e}")
-
-
-def _trpc_post(proc: str, payload: dict):
-    """Changes your Civitai account, so it only runs through the Firefox helper (your login session; needs extension 0.4.2 or newer)."""
-    if transport() != "firefox":
-        raise AuthRequired("Adding to a collection needs the Firefox helper (your Civitai login).")
-    if tuple(map(int, (relay.status()["extension_version"] or "0").split("."))) < (0, 4, 2):
-        raise AuthRequired("The Firefox extension is out of date (needs 0.4.2 or newer to change collections) - reload it from about:debugging or reinstall the signed copy.")
-    url = f"{_account_host()}/api/trpc/{proc}"
-    try:
-        res = relay.submit("json", url, headers=_auth_headers(url), body={"json": payload}, timeout=50)
-    except relay.RelayError as e:
-        raise NetworkError(str(e))
-    status = int(res.get("status", 0))
-    if not 200 <= status < 300:
-        raise type(_status_error(status, url))(f"{proc}: {_status_error(status, url)} - {res.get('body', '')[:200]}")
-    return json.loads(res["body"])["result"]["data"]["json"]
-
-
-def create_collection(name: str) -> int:
-    return _trpc_post("collection.upsert", {"name": name, "type": "Model", "read": "Private",
-                                            "description": "Models pinned in Lora Vault, so a fresh install can restore them."})["id"]
-
-
-def remove_from_collection(collection_id: int, model_id: int):
-    _trpc_post("collection.saveItem", {"type": "Model", "modelId": model_id,
-                                       "collections": [], "removeFromCollectionIds": [collection_id]})
-
-
-def add_to_collection(collection_id: int, model_id: int):
-    _trpc_post("collection.saveItem", {"type": "Model", "modelId": model_id,
-                                       "collections": [{"collectionId": collection_id}], "removeFromCollectionIds": []})
-
-
-def get_session_user() -> dict:
-    """The account logged in to Civitai in Firefox (id, username)."""
-    user = _get_json(f"{_account_host()}/api/auth/session").get("user") or {}
-    if not user.get("username"):
-        raise AuthRequired("Not logged in to Civitai - log in to civitai.com in Firefox.")
-    return user
-
-
-def get_user_collections(user_id: int) -> list:
-    """The user's own collections that hold models."""
-    return [c for c in _trpc("collection.getAllUser", {})
-            if c.get("userId", user_id) == user_id and c.get("type") in (None, "Model")]
-
-
-def collection_model_ids(collection_id: int) -> list:
-    ids, cursor = [], None
-    while True:
-        data = _trpc("model.getAll", {"collectionId": collection_id, "limit": 100, "period": "AllTime",
-                                      "sort": "Newest", "browsingLevel": 31, **({"cursor": cursor} if cursor else {})})
-        ids += [m["id"] for m in data.get("items", [])]
-        cursor = data.get("nextCursor")
-        if not cursor:
-            return ids
-
-
-_LEVEL_NAMES ={"none": 1, "soft": 2, "mature": 4, "x": 8, "xxx": 16}
+_LEVEL_NAMES = {"none": 1, "soft": 2, "mature": 4, "x": 8, "xxx": 16}
 
 
 def get_images(version_id: int, limit: int = 30) -> list:

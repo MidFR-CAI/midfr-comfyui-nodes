@@ -35,17 +35,24 @@
 
   const queuedModels = async () => new Set(((await ext.storage.local.get("queue")).queue || []).map((q) => q.model_id));
 
-  const pinIcon = (filled) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
-
-  const diskIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>`;
-  const plusIcon = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`;
+  // Icons are built as DOM nodes (no HTML strings).
+  const svg = (size, filled, ...paths) => {
+    const NS = "http://www.w3.org/2000/svg", el = document.createElementNS(NS, "svg");
+    for (const [k, v] of Object.entries({ viewBox: "0 0 24 24", width: size, height: size, fill: filled ? "currentColor" : "none", stroke: "currentColor",
+      "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" })) el.setAttribute(k, v);
+    for (const d of paths) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); el.append(p); }
+    return el;
+  };
+  const pinIcon = (filled) => svg(16, filled, "M12 17v5", "M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z");
+  const diskIcon = () => svg(14, false, "M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z", "M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7", "M7 3v4a1 1 0 0 0 1 1h7");
+  const plusIcon = () => svg(16, false, "M12 5v14M5 12h14");
 
   // ---------- buttons on the model page (shadow DOM so Civitai's CSS can't touch them)
   const host = document.createElement("div");
   host.style.cssText = "display:block;margin:8px 0 0";
   const root = host.attachShadow({ mode: "open" });
-  root.innerHTML = `
-    <style>
+  const style = document.createElement("style");
+  style.textContent = `
       .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
       button{font:inherit;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 8px;white-space:nowrap;border-radius:4px;cursor:pointer;
         border:1px solid rgba(34,139,230,.55);background:rgba(34,139,230,.18);color:#74c0fc}
@@ -53,8 +60,10 @@
       button:disabled{opacity:.7;cursor:default}
       button.green{border-color:rgba(47,158,68,.7);background:rgba(47,158,68,.25);color:#8ce99a}
       .s{font:12px/1.4 system-ui,sans-serif;color:#9aa3b2;margin-top:4px}.ok{color:#3fb97a}.warn{color:#e0a82e}.bad{color:#ff7a6b}
-    </style>
-    <div class="row" id="btns"></div><div class="s" id="state"></div>`;
+  `;
+  const row = document.createElement("div"), state = document.createElement("div");
+  row.className = "row"; row.id = "btns"; state.className = "s"; state.id = "state";
+  root.append(style, row, state);
   const $ = (s) => root.querySelector(s);
 
   const ids = () => {
@@ -69,7 +78,9 @@
     const box = $("#btns"); box.replaceChildren();
     for (const [icon, label, fn, disabled, green] of list) {
       const b = document.createElement("button");
-      b.innerHTML = icon + `<span>${label}</span>`; b.disabled = !!disabled; b.classList.toggle("green", !!green);
+      const text = document.createElement("span");
+      text.textContent = label;
+      b.replaceChildren(icon, text); b.disabled = !!disabled; b.classList.toggle("green", !!green);
       b.onclick = async () => { b.disabled = true; b.classList.add("green"); try { await fn(); } finally { b.disabled = false; } };
       box.append(b);
     }
@@ -112,7 +123,7 @@
       if (!res.ok) setState(res.error, "bad"); else await refreshBar();
     };
     setButtons([
-      [plusIcon, saved ? "In Vault" : "Add to Vault", run({}), saved],
+      [plusIcon(), saved ? "In Vault" : "Add to Vault", run({}), saved],
       [pinIcon(pinned && local), pinned && local ? "Pinned" : "Pin + Download", run({ pin: true, download: true }), pinned && local, pinned && local],
     ]);
   }
@@ -121,7 +132,7 @@
   const info = new Map();   // model id -> {pinned, status}; filled in by /status
   const paint = (btn, mid, queued) => {
     const i = info.get(mid) || {};
-    btn.innerHTML = diskIcon;
+    btn.replaceChildren(diskIcon());
     btn.title = queued ? "Queued - click to cancel" : i.pinned ? "Pinned in your Lora Vault (remove it on the vault page)" : i.saved ? "In your Lora Vault - click to remove" : "Add to Lora Vault";
     btn.style.background = i.saved ? "#1f7a4d" : "#4a4f5acc";   // grey -> green once it is in the vault
     btn.style.borderColor = i.saved && i.status && i.status !== "ok" ? "#e0a82e" : "transparent";
